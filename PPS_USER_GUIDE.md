@@ -70,78 +70,71 @@ reports\final-report.pdf
 - не заблокирован ли вход политикой университета;
 - включена ли двухфакторная проверка, если она требуется.
 
-## 3. Как получить плагин без командной строки
+## 3. Добавить marketplace плагина в Codex app
 
-Есть два варианта. Для ППС рекомендуется вариант A.
+Marketplace - это источник, откуда Codex берёт плагины. Наш marketplace лежит в GitHub:
 
-### Вариант A. Плагин расшарен внутри workspace
-
-Этот вариант самый простой. Администратор один раз добавляет плагин и делится им с сотрудниками. Преподаватель просто устанавливает его из Codex app.
+<https://github.com/Astana-Medical-University/sylabys-codex-plugins>
 
 1. Откройте Codex.
-2. Слева нажмите `Plugins`.
-3. Откройте раздел `Shared with you`.
-4. Найдите `Sylabys Syllabus Checker`.
-5. Нажмите `Add to Codex` / `Install`.
-6. Если есть переключатель `Enabled`, включите его.
+2. Слева нажмите `Плагины`.
+3. В правом верхнем углу нажмите кнопку `+`.
+4. В выпадающем меню нажмите `Добавить маркетплейс`.
 
-![Открыть Plugins](screenshots/pps-03-open-plugins.svg)
+![Открыть меню добавления marketplace](screenshots/pps-real-01-add-marketplace-menu.png)
 
-![Установить из Shared with you](screenshots/pps-04-shared-plugin.svg)
+Откроется окно `Добавить маркетплейс плагинов`.
 
-После установки закройте текущий thread и откройте новый. В новом thread Codex увидит плагин.
+Заполните поля так:
 
-### Вариант B. Через GitHub без CLI: скачать marketplace как ZIP
+```text
+Источник:
+https://github.com/Astana-Medical-University/sylabys-codex-plugins
 
-Используйте этот вариант, если плагин ещё не расшарен в workspace.
+Git ref:
+main
 
-1. Откройте GitHub-репозиторий:
-   <https://github.com/Astana-Medical-University/sylabys-codex-plugins>
-2. Нажмите зелёную кнопку `Code`.
-3. Нажмите `Download ZIP`.
-4. Скачайте архив.
-5. Распакуйте архив в удобную папку, например:
+Выборочные пути:
+не трогать, оставить как есть
+```
 
-   ```text
-   D:\github\sylabys-codex-plugins
-   ```
+Важно: если в поле `Выборочные пути` серым текстом показано `plugins/codex`, это подсказка-пример. Обычно это поле заполнять не нужно. Вписывайте туда что-либо только если администратор отдельно попросил.
 
-![Скачать ZIP из GitHub](screenshots/pps-05-github-download-zip.svg)
+![Окно добавления marketplace](screenshots/pps-real-02-marketplace-dialog-empty.png)
 
-Теперь откройте эту папку в Codex:
+После заполнения нажмите `Добавить маркетплейс`.
 
-1. Откройте Codex.
-2. Нажмите `Open project` / `Add project`.
-3. Выберите папку, куда распаковали репозиторий:
+![Заполнить GitHub-ссылку и нажать Добавить маркетплейс](screenshots/pps-real-03-marketplace-dialog-filled.jpg)
 
-   ```text
-   D:\github\sylabys-codex-plugins
-   ```
+Подождите, пока Codex добавит marketplace. Это может занять от нескольких секунд до минуты.
 
-4. Откройте `Plugins`.
-5. Найдите источник `Sylabys Codex Plugins`.
-6. Установите `Sylabys Syllabus Checker`.
+Если появится ошибка:
 
-![Открыть папку marketplace в Codex](screenshots/pps-06-open-marketplace-project.svg)
-
-Важно: при варианте B обновления не подтягиваются автоматически. Когда администратор выпустит новую версию, нужно заново скачать ZIP из GitHub и распаковать его поверх старой папки.
+- проверьте интернет;
+- проверьте, что ссылка скопирована полностью;
+- проверьте, что у вас есть доступ к GitHub-репозиторию;
+- закройте окно и повторите ещё раз.
 
 ## 4. Проверить, что плагин включён
 
-1. Откройте Codex.
-2. Откройте `Plugins`.
-3. Найдите `Sylabys Syllabus Checker`.
-4. Убедитесь, что написано `Installed` / `Установлен`.
-5. Если есть переключатель, он должен быть включён.
+После добавления marketplace в списке появится вкладка `Sylabys Codex Plugins`.
 
-![Проверить включение плагина](screenshots/pps-07-plugin-enabled.svg)
+1. Откройте `Плагины`.
+2. Нажмите вкладку `Sylabys Codex Plugins`.
+3. Найдите `Sylabys Syllabus Checker`.
+4. Справа нажмите `Подключить`.
+5. Дождитесь, пока кнопка изменится на состояние подключённого плагина.
+
+![Подключить Sylabys Syllabus Checker](screenshots/pps-real-04-connect-plugin.png)
 
 Если плагина нет:
 
 - проверьте, что вы вошли в правильный workspace;
-- проверьте раздел `Shared with you`;
-- если использовали ZIP, проверьте, что открыли именно папку `sylabys-codex-plugins`, а не внутреннюю папку `plugins`;
+- проверьте, что marketplace добавлен без ошибки;
+- проверьте, что вкладка `Sylabys Codex Plugins` появилась рядом с `Рекомендовано OpenAI` и `Создано мной`;
 - перезапустите Codex.
+
+После подключения плагина откройте новый чат. В старом чате Codex может не увидеть только что подключённый плагин.
 
 ## 5. Подготовить папку `syllabus_group`
 
@@ -342,9 +335,11 @@ final-report.json
 
 1. Перезапустите Codex.
 2. Откройте новый thread.
-3. Проверьте `Plugins`.
-4. Проверьте `Shared with you`.
-5. Убедитесь, что вы вошли в workspace университета.
+3. Откройте `Плагины`.
+4. Проверьте, появилась ли вкладка `Sylabys Codex Plugins`.
+5. Если вкладки нет, повторите добавление marketplace через кнопку `+`.
+6. Если вкладка есть, откройте её и нажмите `Подключить` рядом с `Sylabys Syllabus Checker`.
+7. Убедитесь, что вы вошли в workspace университета.
 
 ### Codex не видит ОП или РУП
 
@@ -385,13 +380,24 @@ final-report.json
 
 1. Установить Codex app.
 2. Войти в аккаунт университета.
-3. Открыть `Plugins`.
-4. Установить `Sylabys Syllabus Checker` из `Shared with you`.
-5. Создать папку дисциплины в `D:\syllabus_group`.
-6. Положить туда силлабус `.docx`, ОП `.docx`, РУП `.xlsx`.
-7. Открыть папку дисциплины в Codex.
-8. В новом thread попросить: `Используй плагин Sylabys Syllabus Checker и сделай PDF-аудит`.
-9. Забрать файл:
+3. Открыть `Плагины`.
+4. Нажать `+`.
+5. Нажать `Добавить маркетплейс`.
+6. Вставить ссылку:
+
+   ```text
+   https://github.com/Astana-Medical-University/sylabys-codex-plugins
+   ```
+
+7. В `Git ref` оставить `main`.
+8. Нажать `Добавить маркетплейс`.
+9. Открыть вкладку `Sylabys Codex Plugins`.
+10. Рядом с `Sylabys Syllabus Checker` нажать `Подключить`.
+11. Создать папку дисциплины в `D:\syllabus_group`.
+12. Положить туда силлабус `.docx`, ОП `.docx`, РУП `.xlsx`.
+13. Открыть папку дисциплины в Codex.
+14. В новом thread попросить: `Используй плагин Sylabys Syllabus Checker и сделай PDF-аудит`.
+15. Забрать файл:
 
    ```text
    reports\final-report.pdf
