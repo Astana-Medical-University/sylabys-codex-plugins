@@ -7,6 +7,7 @@
 - Updated faculty install flow to match the current Codex app marketplace UI.
 - Added real Codex app screenshots for adding the GitHub marketplace and connecting the plugin.
 - Added `PPS_USER_GUIDE.pdf` and corrected the app install step to use the top-right dropdown menu instead of the plus button wording.
+- Rebuilt `PPS_USER_GUIDE.pdf` with embedded screenshots so the images display when the PDF is opened or downloaded.
 
 ## v0.1.3 - 2026-06-15
 
