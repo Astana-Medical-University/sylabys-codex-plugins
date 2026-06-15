@@ -34,6 +34,10 @@ plugins/
 
 [PPS_USER_GUIDE.md](PPS_USER_GUIDE.md)
 
+PDF-версия для отправки ППС:
+
+[PPS_USER_GUIDE.pdf](PPS_USER_GUIDE.pdf)
+
 ## Install From Git
 
 После публикации репозитория в GitHub/GitLab:

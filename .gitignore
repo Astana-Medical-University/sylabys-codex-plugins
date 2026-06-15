@@ -5,6 +5,7 @@ __pycache__/
 build/
 reports/
 dist/
+tmp/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
