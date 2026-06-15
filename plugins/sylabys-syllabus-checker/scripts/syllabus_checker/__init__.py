@@ -1,0 +1,2 @@
+"""Syllabus checker package."""
+

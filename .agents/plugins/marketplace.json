@@ -1,0 +1,20 @@
+{
+  "name": "sylabys-codex-plugins",
+  "interface": {
+    "displayName": "Sylabys Codex Plugins"
+  },
+  "plugins": [
+    {
+      "name": "sylabys-syllabus-checker",
+      "source": {
+        "source": "local",
+        "path": "./plugins/sylabys-syllabus-checker"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

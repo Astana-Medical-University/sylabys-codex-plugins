@@ -1,0 +1,29 @@
+{
+  "name": "sylabys-syllabus-checker",
+  "version": "0.1.3",
+  "description": "Six-agent syllabus verification plugin for the sylabys repository.",
+  "author": {
+    "name": "Sylabys"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "syllabus",
+    "verification",
+    "codex-agents"
+  ],
+  "interface": {
+    "displayName": "Sylabys Syllabus Checker",
+    "shortDescription": "Six-agent syllabus verification for Sylabys.",
+    "longDescription": "Runs deterministic extraction, six named checking agents, and an arbitration report for medical university syllabus verification.",
+    "developerName": "Sylabys",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Automation"
+    ],
+    "defaultPrompt": [
+      "/check-syllabus \"<path-to-syllabus.docx>\""
+    ],
+    "brandColor": "#2563EB"
+  }
+}

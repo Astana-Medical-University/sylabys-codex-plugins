@@ -1,0 +1,54 @@
+{
+  "fixtures": {
+    "op": {
+      "patterns": [
+        "Приложение 6",
+        "standarta op",
+        "стандарта оп",
+        "паспорт оп"
+      ],
+      "extensions": [
+        ".docx"
+      ]
+    },
+    "rup": {
+      "patterns": [
+        "РУП",
+        "учебный план",
+        ".xlsx"
+      ],
+      "extensions": [
+        ".xlsx"
+      ]
+    }
+  },
+  "outputs": {
+    "defaultRoot": "plugin",
+    "buildDirName": "build",
+    "reportsDirName": "reports"
+  },
+  "pdf": {
+    "enabled": true,
+    "envBrowser": "SYLABYS_PDF_BROWSER",
+    "envSkip": "SYLABYS_SKIP_PDF",
+    "browserNames": [
+      "msedge",
+      "chrome",
+      "chromium",
+      "google-chrome",
+      "microsoft-edge"
+    ],
+    "browserPaths": [
+      "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+      "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+      "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+      "/usr/bin/google-chrome",
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+      "/snap/bin/chromium"
+    ]
+  }
+}
