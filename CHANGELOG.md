@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added `PPS_USER_GUIDE.md`: app-only Russian guide for faculty, without CLI commands.
+- Added 12 visual step screenshots under `screenshots/`.
+
 ## v0.1.3 - 2026-06-15
 
 Initial Git marketplace release.

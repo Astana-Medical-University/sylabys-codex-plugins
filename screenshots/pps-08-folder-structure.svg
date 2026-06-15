@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+  <rect width="980" height="620" fill="#f3f4f6"/>
+  <rect x="80" y="55" width="820" height="510" rx="12" fill="#ffffff" stroke="#d1d5db"/>
+  <text x="115" y="110" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#111827">Папка дисциплины</text>
+  <rect x="120" y="155" width="720" height="325" rx="10" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="150" y="205" font-family="Consolas, monospace" font-size="24" fill="#111827">D:\syllabus_group\anatomy_1</text>
+  <text x="175" y="260" font-family="Consolas, monospace" font-size="22" fill="#111827">📄 Анатомия силлабус.docx</text>
+  <text x="175" y="315" font-family="Consolas, monospace" font-size="22" fill="#111827">📄 Приложение 6 паспорт ОП Медицина.docx</text>
+  <text x="175" y="370" font-family="Consolas, monospace" font-size="22" fill="#111827">📊 РУП 1 курс медицина.xlsx</text>
+  <rect x="140" y="235" width="655" height="155" rx="12" fill="none" stroke="#ef4444" stroke-width="5"/>
+  <text x="120" y="525" font-family="Arial, sans-serif" font-size="19" fill="#374151">В одной папке - одна дисциплина и три нужных файла.</text>
+</svg>

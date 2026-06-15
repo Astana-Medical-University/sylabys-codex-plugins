@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+  <rect width="980" height="620" fill="#eef2f7"/>
+  <rect x="70" y="50" width="840" height="520" rx="12" fill="#111827"/>
+  <rect x="90" y="75" width="800" height="470" rx="10" fill="#ffffff"/>
+  <text x="120" y="125" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#111827">Codex</text>
+  <text x="120" y="175" font-family="Arial, sans-serif" font-size="20" fill="#4b5563">Войдите, чтобы начать работу</text>
+  <rect x="350" y="250" width="280" height="70" rx="10" fill="#111827"/>
+  <text x="427" y="294" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">Sign in</text>
+  <rect x="330" y="232" width="320" height="106" rx="14" fill="none" stroke="#ef4444" stroke-width="6"/>
+  <path d="M700 235 L635 270" stroke="#ef4444" stroke-width="5"/>
+  <rect x="700" y="190" width="190" height="58" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+  <text x="725" y="226" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#991b1b">Войти в аккаунт</text>
+  <text x="120" y="505" font-family="Arial, sans-serif" font-size="18" fill="#374151">Выберите workspace университета, если Codex предложит выбор.</text>
+</svg>

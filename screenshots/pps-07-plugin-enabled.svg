@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+  <rect width="980" height="620" fill="#f3f4f6"/>
+  <rect x="55" y="45" width="870" height="530" rx="12" fill="#ffffff" stroke="#d1d5db"/>
+  <text x="95" y="105" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#111827">Sylabys Syllabus Checker</text>
+  <text x="95" y="145" font-family="Arial, sans-serif" font-size="19" fill="#4b5563">Six-agent syllabus verification for Sylabys</text>
+  <rect x="95" y="210" width="190" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
+  <text x="125" y="242" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#166534">Installed</text>
+  <rect x="650" y="205" width="170" height="60" rx="30" fill="#16a34a"/>
+  <circle cx="790" cy="235" r="24" fill="#ffffff"/>
+  <text x="665" y="242" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#ffffff">Enabled</text>
+  <rect x="630" y="185" width="210" height="100" rx="14" fill="none" stroke="#ef4444" stroke-width="5"/>
+  <path d="M585 315 L660 260" stroke="#ef4444" stroke-width="5"/>
+  <rect x="365" y="305" width="245" height="62" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+  <text x="392" y="343" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#991b1b">Должно быть Enabled</text>
+</svg>

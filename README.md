@@ -28,6 +28,12 @@ plugins/
 
 Корневой `marketplace.json` нужен для установки как marketplace root или Git marketplace. Файл `.agents/plugins/marketplace.json` нужен, чтобы Codex видел marketplace при открытии этого репозитория как проекта.
 
+## Инструкция Для ППС
+
+Подробная инструкция без командной строки, со скриншотами и пошаговым запуском аудита:
+
+[PPS_USER_GUIDE.md](PPS_USER_GUIDE.md)
+
 ## Install From Git
 
 После публикации репозитория в GitHub/GitLab:

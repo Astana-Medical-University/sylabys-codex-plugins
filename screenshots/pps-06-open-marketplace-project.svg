@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+  <rect width="980" height="620" fill="#f3f4f6"/>
+  <rect x="70" y="55" width="840" height="510" rx="12" fill="#ffffff" stroke="#d1d5db"/>
+  <text x="105" y="110" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#111827">Codex: открыть проект</text>
+  <rect x="120" y="160" width="280" height="64" rx="10" fill="#2563eb"/>
+  <text x="166" y="201" font-family="Arial, sans-serif" font-size="23" font-weight="700" fill="#ffffff">Open project</text>
+  <rect x="105" y="145" width="310" height="94" rx="14" fill="none" stroke="#ef4444" stroke-width="5"/>
+  <rect x="120" y="295" width="735" height="85" rx="8" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="145" y="347" font-family="Arial, sans-serif" font-size="22" fill="#111827">D:\github\sylabys-codex-plugins</text>
+  <rect x="110" y="285" width="755" height="105" rx="12" fill="none" stroke="#ef4444" stroke-width="5"/>
+  <text x="120" y="485" font-family="Arial, sans-serif" font-size="19" fill="#374151">Выберите папку, куда распаковали GitHub ZIP.</text>
+</svg>
