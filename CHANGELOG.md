@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8 - 2026-06-16
+
+- Fixed course parsing so resource-card fields like `Курс ______` followed by `Всего контингент обучающихся 735` no longer produce `course=735`.
+- Restricted course extraction to reliable syllabus passport/study-period context and valid course values 1-7.
+- Updated module credit reporting so extracted credit values are marked as syllabus passport values requiring RUP verification, not calculated module totals.
+- Added regression tests for the `course=735` parser bug and invalid `735, 2.0 кредитов` report string.
+
 ## 0.1.7 - 2026-06-16
 
 - Added plugin-provided MCP server `sylabys` and callable tool `prepare_syllabus_audit`.

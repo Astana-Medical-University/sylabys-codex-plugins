@@ -424,14 +424,25 @@ def _plain_status(status: str) -> str:
 def _document_snapshot(syllabus: dict[str, Any]) -> dict[str, str]:
     desc = (syllabus.get("descriptions") or [{}])[0]
     program = desc.get("program") or syllabus.get("program") or {}
-    credits = desc.get("credits") or {}
-    credit_value = credits.get("academic") if isinstance(credits, dict) else syllabus.get("credits")
     return {
         "title": syllabus.get("title") or "не распознано",
         "program": f"{program.get('code', '')} {program.get('name', '')}".strip() or "не распознано",
         "discipline": desc.get("disciplineName") or syllabus.get("title") or "не распознано",
-        "courseCredits": f"{desc.get('studyPeriod', {}).get('course') or syllabus.get('course') or 'не распознано'}, {credit_value if credit_value not in (None, '') else 'не распознано'} кредитов",
+        "courseCredits": _format_course_credits(syllabus, desc),
     }
+
+
+def _format_course_credits(syllabus: dict[str, Any], desc: dict[str, Any]) -> str:
+    course = desc.get("studyPeriod", {}).get("course") or syllabus.get("course")
+    credits = desc.get("credits") or {}
+    credit_value = credits.get("academic") if isinstance(credits, dict) else syllabus.get("credits")
+    course_text = f"{int(course)} курс" if isinstance(course, (int, float)) and 1 <= course <= 7 else "курс не распознан"
+    if syllabus.get("type") == "module" and credit_value in (0, 0.0, None, ""):
+        return f"{course_text}; кредиты модуля не извлечены надёжно, требуется сверка с РУП"
+    if syllabus.get("type") == "module":
+        return f"{course_text}; в силлабусе указано {credit_value:g} кредитов, итоговый объём модуля требуется сверить с РУП"
+    credit_text = f"{credit_value:g} кредитов" if isinstance(credit_value, (int, float)) and credit_value > 0 else "кредиты не распознаны"
+    return f"{course_text}, {credit_text}"
 
 
 def _fixture_path(kind: str, build_dir: Path = BUILD_DIR) -> str:
@@ -589,6 +600,13 @@ def _data_quality_warnings(syllabus: dict[str, Any]) -> list[str]:
         warnings.append("Название дисциплины извлечено ненадёжно. Нужно проверить титул и раздел 1: без этого сверка с ОП и РУП может давать ложные срабатывания.")
     if (credits.get("academic") if isinstance(credits, dict) else syllabus.get("credits")) in (0, 0.0, "", None):
         warnings.append("Кредиты не распознаны как структурированное поле. Для строгой сверки с ОП/РУП это нужно исправить в экстракции или в исходном шаблоне.")
+    course = desc.get("studyPeriod", {}).get("course") or syllabus.get("course")
+    if not isinstance(course, (int, float)) or not 1 <= course <= 7:
+        warnings.append("Курс не распознан как надёжное паспортное поле. Парсер не использует числа из карты обеспеченности литературы; курс нужно сверить с разделом 1 и РУП.")
+    if syllabus.get("type") == "module" and (credits.get("academic") if isinstance(credits, dict) else syllabus.get("credits")) in (0, 0.0, "", None):
+        warnings.append("Для модульного силлабуса кредиты модуля не подставлены из одной дисциплинарной строки. Итоговый объём модуля нужно подтвердить по РУП.")
+    elif syllabus.get("type") == "module":
+        warnings.append("Для модульного силлабуса найденное число кредитов считается паспортным значением из силлабуса, а не расчётом объёма модуля по РУП.")
     if any((hours.get(k) or 0) > 500 for k in ("lecture", "practical", "sro", "srop", "clinicalBasePractice")):
         warnings.append("Часы распознаны с явной ошибкой, например год мог попасть в поле лекций. Выводы по часам нужно подтверждать визуально по документу.")
     return warnings

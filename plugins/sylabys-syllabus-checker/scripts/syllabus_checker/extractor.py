@@ -185,9 +185,9 @@ def extract_syllabus(path: Path) -> dict[str, Any]:
     year_match = re.search(r"20\d{2}\s*[-–]\s*20\d{2}", text)
     if year_match:
         academic_year = year_match.group(0).replace(" ", "").replace("–", "-")
-    course = int(_number_after_label(text, ["курс"], allow_inline=False) or 0)
-    credits = _number_after_label(text, ["количество академических кредитов", "количество кредитов"], allow_inline=False)
     syllabus_type = "module" if re.search(r"\bмодул", title + "\n" + text[:1500], re.IGNORECASE) else "discipline"
+    course = _extract_course(text)
+    credits = _extract_credits(text, syllabus_type)
     discipline_name = _extract_discipline_name(text) or title
     hours = _extract_hours(text)
     program = _program_from_text(text)
@@ -264,6 +264,58 @@ def _slice_after(text: str, needle: str, limit: int) -> str:
 
 def _lines(text: str) -> list[str]:
     return [normalize_text(x) for x in text.splitlines() if normalize_text(x)]
+
+
+def _extract_course(text: str) -> int:
+    lines = _lines(text)
+    main_text = _main_syllabus_text(text)
+
+    period_match = re.search(r"период\s+обучения.{0,120}?\b([1-7])\s*курс\b", main_text, re.IGNORECASE | re.DOTALL)
+    if period_match:
+        return int(period_match.group(1))
+
+    for idx, line in enumerate(lines):
+        low = line.casefold()
+        if _is_resource_card_line(low):
+            break
+        inline_match = re.fullmatch(r"курс\s*[:\-]?\s*([1-7])(?:\D.*)?", low)
+        if inline_match:
+            return int(inline_match.group(1))
+        if low.strip(" :;") != "курс":
+            continue
+        for next_line in lines[idx + 1 : idx + 3]:
+            next_low = next_line.casefold()
+            if _looks_like_new_label(next_low) or "контингент" in next_low:
+                break
+            value = parse_first_number(next_line)
+            if value is not None and 1 <= value <= 7 and float(value).is_integer():
+                return int(value)
+    return 0
+
+
+def _extract_credits(text: str, syllabus_type: str) -> float:
+    main_text = _main_syllabus_text(text)
+    top_level = _number_after_label(main_text, ["количество кредитов"], allow_inline=True)
+    if top_level:
+        return top_level
+    if syllabus_type == "module":
+        return 0
+    return _number_after_label(main_text, ["количество академических кредитов", "количество кредитов"], allow_inline=False)
+
+
+def _main_syllabus_text(text: str) -> str:
+    match = re.search(r"\n\s*(?:Приложение\s*2|КАРТА\s+обеспеченности)\b", text, re.IGNORECASE)
+    if match:
+        return text[: match.start()]
+    return text
+
+
+def _is_resource_card_line(line: str) -> bool:
+    return "карта обеспеченности" in line or "всего контингент обучающихся" in line
+
+
+def _looks_like_new_label(line: str) -> bool:
+    return bool(re.search(r"[а-яёa-z]{3,}", line, re.IGNORECASE))
 
 
 def _number_after_label(text: str, labels: list[str], *, allow_inline: bool = True) -> float:

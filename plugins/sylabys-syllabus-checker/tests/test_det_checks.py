@@ -7,8 +7,9 @@ from pathlib import Path
 
 from scripts.mcp_server import build_audit_plan
 from scripts.run_suite import run_agent_suite
+from scripts.syllabus_checker.arbitration import _document_snapshot
 from scripts.syllabus_checker.det import run_det_suite
-from scripts.syllabus_checker.extractor import _extract_thematic_plan
+from scripts.syllabus_checker.extractor import _extract_course, _extract_credits, _extract_thematic_plan
 
 
 def _write(path: Path, data: dict) -> None:
@@ -86,6 +87,17 @@ class DetChecksTest(unittest.TestCase):
             self.assertEqual(result["OP-005"]["verdict"], "FAIL")
             self.assertEqual(result["OP-006"]["verdict"], "FAIL")
 
+    def test_extract_thematic_plan_hours_from_new_template_columns(self) -> None:
+        table = [
+            ["№", "Код РО", "Код(ы) ПН", "Тема", "Л", "ПЗ", "СРОП", "СРО", "Методы обучения"],
+            ["1", "РО1", "ПН1", "Артериальная гипертензия", "-", "2", "1", "3", "CBL"],
+            ["2", "РО2", "ПН2", "Бронхиальная астма", "1", "4", "2", "5", "TBL"],
+        ]
+        plan = _extract_thematic_plan([table])
+        self.assertEqual(len(plan), 2)
+        self.assertEqual(plan[0]["hours"], {"lecture": 0, "practical": 2.0, "srop": 1.0, "sro": 3.0})
+        self.assertEqual(plan[1]["hours"], {"lecture": 1.0, "practical": 4.0, "srop": 2.0, "sro": 5.0})
+
     def test_mcp_audit_plan_uses_subagent_suites(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -108,16 +120,45 @@ class DetChecksTest(unittest.TestCase):
             payload = json.loads((reports / "str.json").read_text(encoding="utf-8"))
             self.assertIsInstance(payload, list)
 
-    def test_extract_thematic_plan_hours_from_new_template_columns(self) -> None:
-        table = [
-            ["№", "Код РО", "Код(ы) ПН", "Тема", "Л", "ПЗ", "СРОП", "СРО", "Методы обучения"],
-            ["1", "РО1", "ПН1", "Артериальная гипертензия", "-", "2", "1", "3", "CBL"],
-            ["2", "РО2", "ПН2", "Бронхиальная астма", "1", "4", "2", "5", "TBL"],
-        ]
-        plan = _extract_thematic_plan([table])
-        self.assertEqual(len(plan), 2)
-        self.assertEqual(plan[0]["hours"], {"lecture": 0, "practical": 2.0, "srop": 1.0, "sro": 3.0})
-        self.assertEqual(plan[1]["hours"], {"lecture": 1.0, "practical": 4.0, "srop": 2.0, "sro": 5.0})
+    def test_course_parser_ignores_resource_card_contingent(self) -> None:
+        text = """
+        СИЛЛАБУС
+        Модуль: Анатомия
+        Количество кредитов: 6
+        Описание дисциплины (модуля)
+        Период обучения
+        1 курс, 1 семестр
+        Количество академических кредитов
+        2
+        Приложение 2 — КО (Карта обеспеченности)
+        КАРТА обеспеченности учебной литературой
+        Курс ______________
+        Всего контингент обучающихся 735 на 1 сентября
+        """
+        self.assertEqual(_extract_course(text), 1)
+        self.assertEqual(_extract_credits(text, "module"), 6)
+
+    def test_module_snapshot_does_not_print_invalid_course_or_single_discipline_credits(self) -> None:
+        snapshot = _document_snapshot(
+            {
+                "type": "module",
+                "title": "Анатомия",
+                "course": 735,
+                "credits": 2.0,
+                "program": {"code": "6В10123", "name": "Медицина"},
+                "descriptions": [
+                    {
+                        "disciplineName": "Анатомия",
+                        "program": {"code": "6В10123", "name": "Медицина"},
+                        "studyPeriod": {"course": 735},
+                        "credits": {"academic": 0, "ects": 0},
+                    }
+                ],
+            }
+        )
+        self.assertIn("курс не распознан", snapshot["courseCredits"])
+        self.assertIn("кредиты модуля не извлечены", snapshot["courseCredits"])
+        self.assertNotIn("735, 2.0 кредитов", snapshot["courseCredits"])
 
 
 if __name__ == "__main__":
