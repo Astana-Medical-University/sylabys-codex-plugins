@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-06-16
+
+- Switched `sylabys-syllabus-checker` to plugin-only invocation through `@sylabys-syllabus-checker`.
+- Removed the bundled `skills` manifest entry and deleted the skill component from the release.
+- Updated plugin-level description and `/check-syllabus` to require real Codex subagents without a non-subagent fallback.
+
 ## 0.1.5 - 2026-06-16
 
 - Added explicit real Codex subagent workflow to the syllabus-checker skill and `/check-syllabus` prompt.

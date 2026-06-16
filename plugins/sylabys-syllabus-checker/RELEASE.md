@@ -1,18 +1,19 @@
-# Release 0.1.5
+# Release 0.1.6
 
 ## Что изменилось
 
-- Skill `/check-syllabus` переведён на явный workflow с настоящими Codex subagents.
-- Добавлен `scripts/run_suite.py`: переносимый запуск одного suite (`STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`) для отдельного субагента.
-- Добавлен `scripts/write_final_report.py`: сбор итогового `final-report.md/html/pdf/json` после завершения шести субагентов.
-- В prompt больше нет зависимости от относительного `scripts/...` в папке пользователя: всем субагентам передаются абсолютные пути к `plugin_root`, `build_dir` и `reports_dir`.
-- `scripts/run_check.py` оставлен как fallback для окружений, где Codex subagents недоступны.
+- Плагин переведён в plugin-only режим запуска через `@sylabys-syllabus-checker`.
+- Из manifest удалён `skills`: запуск больше не должен происходить как bundled skill.
+- Plugin-level description и `/check-syllabus` теперь прямо требуют настоящий Codex subagent workflow.
+- Fallback без субагентов убран из основного сценария: если subagents недоступны или закончились workspace credits, плагин должен остановиться и сообщить блокер.
+- `.codex/agents/*.toml` и suite runner остаются основой проверки: один Codex-субагент выполняет один suite.
 
-## Как использовать
+## Использование
 
-1. Обновите marketplace в Codex App из GitHub-репозитория.
-2. Установите/обновите `Sylabys Syllabus Checker`.
-3. Откройте новый thread в проекте с силлабусом.
-4. Попросите: `Используй плагин Sylabys Syllabus Checker и проверь силлабус ...`.
+В новом thread после обновления плагина напишите:
 
-Codex должен поднять шесть субагентов для suite-проверок и затем собрать PDF-аудит в `reports\final-report.pdf`.
+```text
+@sylabys-syllabus-checker Проверь силлабус D:\path\to\syllabus.docx
+```
+
+Ожидаемый результат: шесть Codex-субагентов выполняют `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`, затем главный тред собирает `reports\final-report.pdf`.
