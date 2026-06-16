@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3 - 2026-06-16
+
+- Исправлен запуск plugin-provided MCP server `sylabys` после установки через Git marketplace: `scripts/mcp_server.py` больше не зависит от внешнего Python-пакета `mcp` и реализует stdio MCP entrypoint на стандартной библиотеке.
+- MCP tool `prepare_syllabus_audit` остаётся доступен через `@sylabys-syllabus-checker` и возвращает structured план для шести Codex-субагентов.
+- Команды аудита теперь используют тот же Python-интерпретатор, которым запущен MCP server, чтобы не зависеть от системного PATH пользователя.
+- В `.mcp.json` включён unbuffered запуск и явные таймауты старта/работы MCP server.
+
 ## 1.0.2 - 2026-06-16
 
 - Закреплена инструкция для ППС на сценарии установки через Codex app + Git marketplace: без CLI-команд для преподавателей и без Share-сценария.

@@ -18,10 +18,12 @@ The plugin is designed for Russian-language audits. The technical checks run in 
 Run from a Codex thread opened in the project folder:
 
 ```powershell
-/check-syllabus "<path-to-syllabus.docx>"
+@sylabys-syllabus-checker Проверь силлабус "<path-to-syllabus.docx>" через 6 субагентов
 ```
 
-If custom Codex agents are not available in the current environment, use the local fallback:
+This invokes the plugin-provided MCP tool `prepare_syllabus_audit`; Codex then spawns six real subagents (`STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`) and writes the final report.
+
+If plugin MCP or custom Codex agents are not available in the current environment, use the local fallback:
 
 ```powershell
 python scripts/run_check.py "<path-to-syllabus.docx>"

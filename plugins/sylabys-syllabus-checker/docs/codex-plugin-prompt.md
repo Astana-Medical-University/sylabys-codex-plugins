@@ -17,7 +17,7 @@
 ## Архитектура (фиксированная, не менять)
 
 ```
-/check-syllabus <docx>
+@sylabys-syllabus-checker Проверь силлабус <docx> через 6 субагентов
    │
    ├─ scripts/extract.py  → build/syllabus.json, build/op.json, build/rup.json
    │
@@ -70,7 +70,7 @@
 
 ```toml
 name = "syllabus-op"
-description = "Проверяет силлабус на соответствие паспорту ОП (сьют OP из docs/verification-algorithm.md). Использовать при прогоне /check-syllabus."
+description = "Проверяет силлабус на соответствие паспорту ОП (сьют OP из docs/verification-algorithm.md). Использовать при прогоне @sylabys-syllabus-checker."
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
 developer_instructions = """
@@ -91,9 +91,9 @@ developer_instructions = """
 
 Сделай аналогично для остальных пяти, меняя сьют, имя выходного файла и роль (STR — структурный контролёр, FMT — технический контролёр, RUP — эксперт учебного плана, INT — аудитор согласованности, TXT — редактор-вычитчик). У FMT добавь в инструкции работу с docx-разметкой напрямую (шрифты, поля, track changes), у TXT — что он полностью LLM и скрипт ему не нужен.
 
-## Этап 3 — оркестрация (`.codex/prompts/check-syllabus.md`)
+## Этап 3 — оркестрация (`@sylabys-syllabus-checker`)
 
-Кастомный промпт `/check-syllabus <путь к docx>`. Текст промпта обязан содержать команду спавна ЯВНО, например:
+Plugin workflow `@sylabys-syllabus-checker Проверь силлабус <путь к docx> через 6 субагентов`. Текст оркестрации обязан содержать команду спавна ЯВНО, например:
 
 ```
 1. Очисти build/ и reports/, запусти python scripts/extract.py <docx>.
@@ -115,7 +115,7 @@ developer_instructions = """
 
 ## Этап 4 — приёмочный прогон
 
-Запусти `/check-syllabus` на реальном силлабусе из корня репозитория. Критерии приёмки:
+Запусти `@sylabys-syllabus-checker` на реальном силлабусе из корня репозитория. Критерии приёмки:
 
 - созданы все 6 `reports/*.json` и `final-report.json` + `final-report.md`;
 - в каждом отчёте ≥ 1 вердикт; у каждого FAIL заполнены `expected`, `actual`, `evidence`;

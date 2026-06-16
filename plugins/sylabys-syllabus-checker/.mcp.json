@@ -3,9 +3,12 @@
     "sylabys": {
       "command": "python",
       "args": [
+        "-u",
         "scripts/mcp_server.py"
       ],
-      "cwd": "."
+      "cwd": ".",
+      "timeout": 600,
+      "connect_timeout": 30
     }
   }
 }

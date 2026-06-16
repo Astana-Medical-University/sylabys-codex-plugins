@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
-
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+PYTHON = sys.executable or "python"
 SUITES = {
     "STR": "structure and required syllabus sections",
     "FMT": "DOCX formatting, margins, comments, tracked changes and template hygiene",
@@ -15,12 +16,11 @@ SUITES = {
     "TXT": "language quality, bibliography and final-control wording",
 }
 
-mcp = FastMCP(
-    "sylabys-syllabus-checker",
-    instructions=(
-        "Prepare Sylabys syllabus audits. This MCP tool does not perform the full audit itself: "
-        "Codex must spawn six real subagents, one per suite, then run final arbitration."
-    ),
+SERVER_NAME = "sylabys-syllabus-checker"
+TOOL_NAME = "prepare_syllabus_audit"
+TOOL_DESCRIPTION = (
+    "Prepare a Sylabys syllabus audit plan for @sylabys-syllabus-checker. "
+    "Returns exact commands and prompts for six real Codex subagents; does not replace subagents."
 )
 
 
@@ -48,7 +48,7 @@ def build_audit_plan(
     op = str(Path(op_path).expanduser().resolve()) if op_path else ""
     rup = str(Path(rup_path).expanduser().resolve()) if rup_path else ""
 
-    extract_command = ["python", str(PLUGIN_ROOT / "scripts" / "extract.py"), syllabus, "--build", str(build_dir)]
+    extract_command = [PYTHON, str(PLUGIN_ROOT / "scripts" / "extract.py"), syllabus, "--build", str(build_dir)]
     if op:
         extract_command.extend(["--op", op])
     if rup:
@@ -56,7 +56,7 @@ def build_audit_plan(
 
     suite_commands = {
         suite: [
-            "python",
+            PYTHON,
             str(PLUGIN_ROOT / "scripts" / "run_suite.py"),
             "--suite",
             suite,
@@ -69,7 +69,7 @@ def build_audit_plan(
     }
     suite_reports = {suite: str(reports_dir / f"{suite.lower()}.json") for suite in SUITES}
     final_command = [
-        "python",
+        PYTHON,
         str(PLUGIN_ROOT / "scripts" / "write_final_report.py"),
         "--build",
         str(build_dir),
@@ -116,13 +116,6 @@ def build_audit_plan(
     }
 
 
-@mcp.tool(
-    name="prepare_syllabus_audit",
-    description=(
-        "Prepare a Sylabys syllabus audit plan for @sylabys-syllabus-checker. "
-        "Returns exact commands and prompts for six real Codex subagents; does not replace subagents."
-    ),
-)
 def prepare_syllabus_audit(
     syllabus_path: str,
     output_root: str | None = None,
@@ -132,5 +125,124 @@ def prepare_syllabus_audit(
     return build_audit_plan(syllabus_path, output_root, op_path, rup_path)
 
 
+def _plugin_version() -> str:
+    manifest = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
+    try:
+        return json.loads(manifest.read_text(encoding="utf-8")).get("version", "0.0.0")
+    except Exception:
+        return "0.0.0"
+
+
+def _tool_descriptor() -> dict[str, Any]:
+    return {
+        "name": TOOL_NAME,
+        "description": TOOL_DESCRIPTION,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "syllabus_path": {
+                    "type": "string",
+                    "description": "Path to the syllabus .docx file.",
+                },
+                "output_root": {
+                    "type": "string",
+                    "description": "Optional folder where build/ and reports/ should be written.",
+                },
+                "op_path": {
+                    "type": "string",
+                    "description": "Optional explicit path to the educational program passport.",
+                },
+                "rup_path": {
+                    "type": "string",
+                    "description": "Optional explicit path to the curriculum/RUP file.",
+                },
+            },
+            "required": ["syllabus_path"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def _success(message_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": message_id, "result": result}
+
+
+def _error(message_id: Any, code: int, message: str) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
+
+
+def _handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
+    message_id = message.get("id")
+    method = message.get("method")
+
+    if method == "initialize":
+        protocol_version = (message.get("params") or {}).get("protocolVersion", "2024-11-05")
+        return _success(
+            message_id,
+            {
+                "protocolVersion": protocol_version,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": SERVER_NAME, "version": _plugin_version()},
+                "instructions": (
+                    "Use prepare_syllabus_audit first, then run the returned extraction command, "
+                    "spawn six real Codex subagents, and run final arbitration."
+                ),
+            },
+        )
+
+    if method == "tools/list":
+        return _success(message_id, {"tools": [_tool_descriptor()]})
+
+    if method == "tools/call":
+        params = message.get("params") or {}
+        if params.get("name") != TOOL_NAME:
+            return _error(message_id, -32602, f"Unknown tool: {params.get('name')}")
+        arguments = params.get("arguments") or {}
+        try:
+            result = prepare_syllabus_audit(
+                syllabus_path=str(arguments.get("syllabus_path") or ""),
+                output_root=arguments.get("output_root"),
+                op_path=arguments.get("op_path"),
+                rup_path=arguments.get("rup_path"),
+            )
+        except Exception as exc:
+            return _success(
+                message_id,
+                {
+                    "content": [{"type": "text", "text": f"{type(exc).__name__}: {exc}"}],
+                    "isError": True,
+                },
+            )
+        return _success(
+            message_id,
+            {
+                "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
+                "structuredContent": result,
+                "isError": False,
+            },
+        )
+
+    if method and method.startswith("notifications/"):
+        return None
+
+    return _error(message_id, -32601, f"Method not found: {method}")
+
+
+def serve() -> None:
+    for raw_line in sys.stdin.buffer:
+        line = raw_line.decode("utf-8").strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+            response = _handle_request(message)
+        except Exception as exc:
+            response = _error(None, -32700, f"Parse error: {type(exc).__name__}: {exc}")
+        if response is not None:
+            payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
+            sys.stdout.buffer.write(payload.encode("utf-8"))
+            sys.stdout.buffer.flush()
+
+
 if __name__ == "__main__":
-    mcp.run("stdio")
+    serve()

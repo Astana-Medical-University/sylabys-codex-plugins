@@ -18,10 +18,12 @@ Start a new Codex thread after installing.
 Open Codex in the folder that contains the syllabus, OP passport, and RUP files, then run:
 
 ```powershell
-/check-syllabus "<path-to-syllabus.docx>"
+@sylabys-syllabus-checker Проверь силлабус "<path-to-syllabus.docx>" через 6 субагентов
 ```
 
-Fallback without custom Codex agents:
+This path uses the plugin-provided MCP tool `prepare_syllabus_audit`; Codex then spawns six real subagents and writes the final report.
+
+Emergency local fallback without plugin MCP or custom Codex agents:
 
 ```powershell
 python scripts/run_check.py "<path-to-syllabus.docx>" --op "<op-passport.docx>" --rup "<rup.xlsx>"

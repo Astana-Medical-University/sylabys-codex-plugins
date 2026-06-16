@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.mcp_server import build_audit_plan
+from scripts.mcp_server import TOOL_NAME, _handle_request, build_audit_plan
 from scripts.run_suite import run_agent_suite
 from scripts.syllabus_checker.arbitration import _document_snapshot
 from scripts.syllabus_checker.det import run_det_suite
@@ -135,6 +135,28 @@ class DetChecksTest(unittest.TestCase):
             self.assertEqual(set(plan["suiteCommands"]), {"STR", "FMT", "OP", "RUP", "INT", "TXT"})
             self.assertIn("Spawn six real Codex subagents", " ".join(plan["instructionsForCodex"]))
             self.assertTrue(plan["finalReportPdf"].endswith("final-report.pdf"))
+
+    def test_mcp_stdio_tools_list_and_call(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            syllabus = root / "test.docx"
+            syllabus.write_bytes(b"placeholder")
+            tools = _handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+            self.assertIsNotNone(tools)
+            self.assertEqual(tools["result"]["tools"][0]["name"], TOOL_NAME)
+
+            call = _handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {"name": TOOL_NAME, "arguments": {"syllabus_path": str(syllabus)}},
+                }
+            )
+            self.assertIsNotNone(call)
+            self.assertFalse(call["result"]["isError"])
+            self.assertIn("structuredContent", call["result"])
+            self.assertEqual(call["result"]["structuredContent"]["mode"], "plugin-mcp-plus-real-codex-subagents")
 
     def test_run_suite_writes_named_suite_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
