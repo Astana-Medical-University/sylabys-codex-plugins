@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.mcp_server import build_audit_plan
 from scripts.run_suite import run_agent_suite
 from scripts.syllabus_checker.det import run_det_suite
 from scripts.syllabus_checker.extractor import _extract_thematic_plan
@@ -84,6 +85,17 @@ class DetChecksTest(unittest.TestCase):
             result = {item["testId"]: item for item in run_det_suite("OP", build)}
             self.assertEqual(result["OP-005"]["verdict"], "FAIL")
             self.assertEqual(result["OP-006"]["verdict"], "FAIL")
+
+    def test_mcp_audit_plan_uses_subagent_suites(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            syllabus = root / "test.docx"
+            syllabus.write_bytes(b"placeholder")
+            plan = build_audit_plan(str(syllabus))
+            self.assertEqual(plan["mode"], "plugin-mcp-plus-real-codex-subagents")
+            self.assertEqual(set(plan["suiteCommands"]), {"STR", "FMT", "OP", "RUP", "INT", "TXT"})
+            self.assertIn("Spawn six real Codex subagents", " ".join(plan["instructionsForCodex"]))
+            self.assertTrue(plan["finalReportPdf"].endswith("final-report.pdf"))
 
     def test_run_suite_writes_named_suite_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

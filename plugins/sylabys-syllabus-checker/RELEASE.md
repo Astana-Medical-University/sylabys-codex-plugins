@@ -1,12 +1,11 @@
-# Release 0.1.6
+# Release 0.1.7
 
 ## Что изменилось
 
-- Плагин переведён в plugin-only режим запуска через `@sylabys-syllabus-checker`.
-- Из manifest удалён `skills`: запуск больше не должен происходить как bundled skill.
-- Plugin-level description и `/check-syllabus` теперь прямо требуют настоящий Codex subagent workflow.
-- Fallback без субагентов убран из основного сценария: если subagents недоступны или закончились workspace credits, плагин должен остановиться и сообщить блокер.
-- `.codex/agents/*.toml` и suite runner остаются основой проверки: один Codex-субагент выполняет один suite.
+- Добавлен plugin-provided MCP server `sylabys`.
+- Добавлен MCP tool `prepare_syllabus_audit`, чтобы `@sylabys-syllabus-checker` был активным callable-инструментом в новом thread.
+- Skill-компонент не возвращался: запуск остаётся plugin + MCP tool + настоящие Codex subagents.
+- MCP tool не выполняет аудит вместо агентов. Он возвращает точный orchestration plan: extraction, шесть suite-команд, prompts для subagents и final arbitration command.
 
 ## Использование
 
@@ -16,4 +15,4 @@
 @sylabys-syllabus-checker Проверь силлабус D:\path\to\syllabus.docx
 ```
 
-Ожидаемый результат: шесть Codex-субагентов выполняют `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`, затем главный тред собирает `reports\final-report.pdf`.
+Ожидаемый результат: Codex вызывает MCP tool `prepare_syllabus_audit`, затем поднимает шесть Codex-субагентов для `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`, после чего главный тред собирает `reports\final-report.pdf`.

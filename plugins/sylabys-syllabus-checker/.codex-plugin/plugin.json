@@ -1,7 +1,7 @@
 {
   "name": "sylabys-syllabus-checker",
-  "version": "0.1.6",
-  "description": "Sylabys syllabus audit plugin. Aliases: @sylabys-syllabus-checker. When this plugin is mentioned, run the plugin-only /check-syllabus workflow: prepare extraction, spawn six real Codex subagents for STR, FMT, OP, RUP, INT and TXT, wait for all, then write the human-readable Russian audit PDF. Do not invoke bundled skills. If Codex subagents are unavailable or workspace credits are exhausted, stop and report that blocker instead of using a non-subagent fallback.",
+  "version": "0.1.7",
+  "description": "Sylabys syllabus audit plugin. Aliases: @sylabys-syllabus-checker. This plugin exposes an MCP tool prepare_syllabus_audit that returns an exact orchestration plan. Codex must then spawn six real subagents for STR, FMT, OP, RUP, INT and TXT, wait for all, and write the human-readable Russian audit PDF. Do not invoke bundled skills.",
   "author": {
     "name": "Sylabys"
   },
@@ -13,20 +13,22 @@
   ],
   "interface": {
     "displayName": "Sylabys Syllabus Checker",
-    "shortDescription": "Plugin-only syllabus audit through six Codex subagents.",
-    "longDescription": "Use @sylabys-syllabus-checker to audit a syllabus as a plugin workflow. The orchestrator must run /check-syllabus, spawn six real Codex subagents, collect suite JSON reports, and generate final-report.pdf in Russian with corrections, evidence, levels of correction, literature notes, final-control form and exam questions.",
+    "shortDescription": "Audit syllabuses with a plugin tool and six Codex subagents.",
+    "longDescription": "Use @sylabys-syllabus-checker to audit a syllabus. The plugin exposes a callable MCP tool that prepares paths, commands and suite prompts; Codex then spawns six real subagents and generates final-report.pdf in Russian with corrections, evidence, levels of correction, literature notes, final-control form and exam questions.",
     "developerName": "Sylabys",
     "category": "Productivity",
     "capabilities": [
       "Read",
       "Write",
       "Automation",
-      "Subagents"
+      "Subagents",
+      "MCP Tool"
     ],
     "defaultPrompt": [
       "@sylabys-syllabus-checker Проверь силлабус через 6 субагентов",
-      "/check-syllabus \"<path-to-syllabus.docx>\""
+      "Подготовь аудит силлабуса через Sylabys plugin"
     ],
     "brandColor": "#2563EB"
-  }
+  },
+  "mcpServers": "./.mcp.json"
 }

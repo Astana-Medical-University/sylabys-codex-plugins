@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7 - 2026-06-16
+
+- Added plugin-provided MCP server `sylabys` and callable tool `prepare_syllabus_audit`.
+- Kept the workflow plugin-based rather than skill-based while making `@sylabys-syllabus-checker` discoverable as an active tool.
+- The MCP tool returns the orchestration plan for six real Codex subagents instead of performing a non-subagent fallback.
+
 ## 0.1.6 - 2026-06-16
 
 - Switched `sylabys-syllabus-checker` to plugin-only invocation through `@sylabys-syllabus-checker`.

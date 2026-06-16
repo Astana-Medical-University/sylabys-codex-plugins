@@ -2,55 +2,38 @@
 
 Plugin entrypoint for `@sylabys-syllabus-checker`.
 
-Запусти полную проверку силлабуса именно как plugin workflow через настоящих Codex-субагентов. Не запускай bundled skills и не подменяй workflow обычным локальным `run_check.py`.
+Запусти полную проверку силлабуса именно как plugin workflow: сначала вызови MCP tool `prepare_syllabus_audit`, затем подними настоящих Codex-субагентов по плану, который вернул tool. Не запускай bundled skills и не подменяй workflow обычным локальным `run_check.py`.
 
 Аргумент: путь к `.docx` силлабуса. Папка с силлабусом обычно также содержит ОП/паспорт ОП и РУП/учебный план.
 
 ## Жёсткое правило
 
-Используй real Codex subagents. Главный тред делает только подготовку, запуск, ожидание и арбитраж. Шесть проверочных suite должны выполняться шестью отдельными Codex-субагентами.
-
-Если в текущем окружении нет subagent capability, закончились workspace credits, или Codex не может spawn/wait subagents, остановись и объясни блокер. Не используй fallback без субагентов, если пользователь отдельно не попросил аварийный локальный запуск.
+1. Сначала используй MCP tool плагина `prepare_syllabus_audit` с путём к силлабусу.
+2. Затем используй real Codex subagents. Главный тред делает только подготовку, запуск, ожидание и арбитраж.
+3. Шесть проверочных suite должны выполняться шестью отдельными Codex-субагентами: `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`.
+4. Если MCP tool или subagent capability недоступны, закончились workspace credits, или Codex не может spawn/wait subagents, остановись и объясни блокер. Не используй fallback без субагентов, если пользователь отдельно не попросил аварийный локальный запуск.
 
 ## Порядок
 
-1. Найди `plugin_root`: корень установленного плагина `sylabys-syllabus-checker`.
-2. Определи:
-   - `source_root` = папка с силлабусом, ОП и РУП;
-   - `build_dir` = `<source_root>\build`;
-   - `reports_dir` = `<source_root>\reports`.
-3. Пересоздай `build_dir` и `reports_dir`, не трогая исходные `.docx`/`.xlsx`.
-4. В главном треде выполни extraction:
+1. Вызови `prepare_syllabus_audit`:
+   - `syllabus_path`: путь к `.docx` силлабуса;
+   - `output_root`: папка с силлабусом, ОП и РУП, если пользователь указал её отдельно;
+   - `op_path`: путь к ОП, если пользователь указал явно;
+   - `rup_path`: путь к РУП, если пользователь указал явно.
 
-   ```powershell
-   python "<plugin_root>/scripts/extract.py" "<docx>" --build "<build_dir>"
-   ```
+2. Выполни `extractCommand`, который вернул MCP tool, в главном треде.
 
-   Если ОП/РУП не найдены автоматически, повтори с `--op` и `--rup`.
-
-5. Spawn six Codex subagents in parallel. Если доступны custom agent names, используй:
+3. Spawn six Codex subagents in parallel. Если доступны custom agent names, используй:
    `syllabus-str`, `syllabus-fmt`, `syllabus-op`, `syllabus-rup`, `syllabus-int`, `syllabus-txt`.
-   Если custom names не видны, используй стандартный `worker`/`default` subagent type, но строго с suite-specific prompt.
+   Если custom names не видны, используй стандартный `worker`/`default` subagent type, но строго с suite-specific prompt из `subagentPrompts`.
 
-6. Каждому субагенту передай абсолютные пути `plugin_root`, `build_dir`, `reports_dir`, путь к исходному силлабусу, путь к ОП/РУП при наличии и ровно один suite. Команда для suite:
+4. Каждому субагенту передай только его suite prompt и соответствующую команду из `suiteCommands`. Субагент не должен спавнить других агентов и не должен редактировать исходные `.docx`/`.xlsx`.
 
-   ```powershell
-   python "<plugin_root>/scripts/run_suite.py" --suite "<SUITE>" --build "<build_dir>" --reports "<reports_dir>"
-   ```
+5. Wait for all six subagents. Проверь наличие всех файлов из `suiteReports`. Если файл отсутствует, перезапусти только соответствующий suite один раз через subagent.
 
-   Где `<SUITE>` один из `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`.
+6. Арбитраж выполни сам в главном треде: запусти `finalCommand`, который вернул MCP tool.
 
-7. Wait for all six subagents. Проверь наличие:
-   `str.json`, `fmt.json`, `op.json`, `rup.json`, `int.json`, `txt.json` в `reports_dir`.
-   Если файл отсутствует, перезапусти только соответствующий suite один раз через subagent.
-
-8. Арбитраж выполни сам в главном треде:
-
-   ```powershell
-   python "<plugin_root>/scripts/write_final_report.py" --build "<build_dir>" --reports "<reports_dir>"
-   ```
-
-9. Финальный вывод пользователю: понятный аудит на русском, без сырого JSON. Обязательно укажи:
+7. Финальный вывод пользователю: понятный аудит на русском, без сырого JSON. Обязательно укажи:
    - итоговый статус;
    - что исправить;
    - где исправить;
@@ -60,6 +43,6 @@ Plugin entrypoint for `@sylabys-syllabus-checker`.
    - форму итогового контроля;
    - замечания по литературе;
    - вопросы для итогового контроля;
-   - путь к `final-report.pdf`.
+   - путь к `finalReportPdf`.
 
 Настройки поиска ОП/РУП, названий папок вывода и PDF-движка берутся из `config/syllabus-checker.json`, локального `sylabys-checker.json` или файла из `SYLABYS_CHECKER_CONFIG`.
