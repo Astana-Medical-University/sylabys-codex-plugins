@@ -1,5 +1,14 @@
 # Release Notes
 
+## sylabys-syllabus-checker 0.1.4
+
+Callable skill release.
+
+Changes:
+
+- added manifest "skills": "./skills/";
+- added syllabus-checker skill so Codex can load the plugin as an active skill in new threads;
+- documented how the skill runs the bundled audit script and where the PDF report is written.
 ## sylabys-syllabus-checker 0.1.3
 
 Portable declarative runtime.
@@ -53,3 +62,4 @@ Validation performed:
 - plugin manifest validation passed;
 - `python -m unittest discover -s tests -v` passed;
 - full fallback run produced all expected `reports/*.json`, `reports/final-report.json`, and `reports/final-report.md`.
+

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.1.4 - 2026-06-16
+
+- Added skills: ./skills/ to the plugin manifest.
+- Added the syllabus-checker skill so installed plugins are visible as active skill capabilities in new Codex threads.
+
 - Added `PPS_USER_GUIDE.md`: app-only Russian guide for faculty, without CLI commands.
 - Added 12 visual step screenshots under `screenshots/`.
 - Updated faculty install flow to match the current Codex app marketplace UI.
@@ -20,3 +25,4 @@ Includes `sylabys-syllabus-checker` 0.1.3:
 - `--output-root`, `--build`, and `--reports` for portable report output;
 - PDF generation through configurable local browser discovery;
 - human-readable Russian audit output in Markdown, HTML, PDF, and JSON.
+

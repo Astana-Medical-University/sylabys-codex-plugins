@@ -1,6 +1,6 @@
 {
   "name": "sylabys-syllabus-checker",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Six-agent syllabus verification plugin for the sylabys repository.",
   "author": {
     "name": "Sylabys"
@@ -25,5 +25,6 @@
       "/check-syllabus \"<path-to-syllabus.docx>\""
     ],
     "brandColor": "#2563EB"
-  }
+  },
+  "skills": "./skills/"
 }
