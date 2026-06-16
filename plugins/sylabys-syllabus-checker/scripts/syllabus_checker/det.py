@@ -136,29 +136,121 @@ def _op(data: dict[str, Any]) -> list[dict[str, Any]]:
     discipline = _discipline(syl)
     if op.get("_extraction_error"):
         return [verdict("OP-000", "SKIP", "CRITICAL", discipline=discipline, location="build/op.json", expected="Паспорт ОП распознан", actual=op["_extraction_error"], evidence=op.get("path", ""), recommendation="Передать корректный файл Приложения 6.")]
-    items = []
-    items.append(_eq("OP-001", "CRITICAL", discipline, "Шифр и наименование ОП", op.get("program", {}), syl.get("program", {}), "Сравнение program.code/name"))
-    op_disciplines = op.get("disciplines") or []
-    found = any(_similar_name(discipline, row.get("name", "")) for row in op_disciplines)
-    items.append(verdict("OP-002", "PASS" if found else "FAIL", "CRITICAL", discipline=discipline, location="Сведения о дисциплинах ОП", expected="Дисциплина найдена в ОП", actual="Найдена" if found else "Не найдена", evidence=f"discipline={discipline}; candidates={len(op_disciplines)}", recommendation="Сверить наименование дисциплины с паспортом ОП."))
-    for test_id, severity, field in [("OP-003", "MAJOR", "cycleAndComponent"), ("OP-004", "CRITICAL", "credits")]:
-        items.append(verdict(test_id, "WARN", severity, discipline=discipline, location="ОП / раздел описания", expected=f"Поле {field} совпадает с ОП", actual="Недостаточно структурированных данных для строгой сверки", evidence="Экстракция таблицы ОП выполнена, требуется точная разметка колонок", recommendation="Проверить вручную или уточнить шаблон таблицы ОП."))
-    syl_ro = _program_ro_set(syl)
-    op_ro = set()
-    for row in op_disciplines:
-        if _similar_name(discipline, row.get("name", "")):
-            op_ro.update(x.replace(" ", "").upper() for x in row.get("programOutcomes", []))
-    if op_ro:
-        extra = sorted(syl_ro - op_ro)
-        missing = sorted(op_ro - syl_ro)
-        items.append(verdict("OP-005", "PASS" if not extra else "FAIL", "MAJOR", discipline=discipline, location="Матрица РО", expected=f"A ⊆ B: {sorted(op_ro)}", actual=f"Лишние: {extra}", evidence="build/syllabus.json + build/op.json", recommendation="Удалить связи РО, которых нет в матрице ОП."))
-        items.append(verdict("OP-006", "PASS" if not missing else "FAIL", "MAJOR", discipline=discipline, location="Матрица РО", expected=f"B ⊆ A: {sorted(op_ro)}", actual=f"Не покрыты: {missing}", evidence="build/syllabus.json + build/op.json", recommendation="Добавить требуемые ОП РО в маппинг силлабуса."))
+    items: list[dict[str, Any]] = []
+    desc = (syl.get("descriptions") or [{}])[0]
+    module_name = desc.get("moduleName", "")
+
+    # OP-001 — шифр и наименование ОП (сравниваем код и название по отдельности)
+    op_prog = op.get("program") or {}
+    syl_prog = syl.get("program") or {}
+    code_ok = bool(syl_prog.get("code")) and _cf(op_prog.get("code", "")).replace(" ", "") == _cf(syl_prog.get("code", "")).replace(" ", "")
+    name_ok = bool(syl_prog.get("name")) and _cf(op_prog.get("name", "")) == _cf(syl_prog.get("name", ""))
+    items.append(verdict("OP-001", "PASS" if code_ok and name_ok else "FAIL", "CRITICAL", discipline=discipline, location="Шифр и наименование ОП", expected=f"{op_prog.get('code', '')} {op_prog.get('name', '')}".strip(), actual=f"{syl_prog.get('code', '')} {syl_prog.get('name', '')}".strip(), evidence="program.code/name", recommendation="Привести шифр и наименование ОП в силлабусе к паспорту ОП."))
+
+    # OP-002 — дисциплина/модуль есть в ОП (используем адресный матч экстрактора)
+    matched = op.get("matchedDiscipline") or {}
+    items.append(verdict("OP-002", "PASS" if matched else "FAIL", "CRITICAL", discipline=discipline, location="Сведения о дисциплинах ОП", expected="Дисциплина/модуль найдены в ОП", actual=(f"Найдено: {matched.get('name', '')}" if matched else "Не найдена"), evidence=f"targetNames={op.get('targetNames')}", recommendation="Сверить наименование дисциплины/модуля с паспортом ОП."))
+    if not matched:
+        for tid, sev, loc in [("OP-003", "MAJOR", "Цикл и компонент"), ("OP-004", "CRITICAL", "Кредиты"), ("OP-005", "MAJOR", "Матрица РО"), ("OP-006", "MAJOR", "Матрица РО")]:
+            items.append(verdict(tid, "SKIP", sev, discipline=discipline, location=loc, expected="Сначала найти строку в ОП", actual="Строка ОП не найдена", evidence="build/op.json", recommendation="Сначала устранить OP-002."))
+        items.append(_op007(op, discipline))
+        items.append(_op010(discipline))
+        return items
+
+    matched_name = matched.get("name", "")
+    ov_module = _word_overlap(module_name, matched_name) if module_name else 0
+    ov_discipline = _word_overlap(discipline, matched_name)
+    # ОП перечисляет строки на уровне модуля; если строка ближе к названию модуля,
+    # чем к названию дисциплины, значит сматчился модуль целиком, а не дисциплина.
+    is_module_scope = bool(module_name) and ov_module >= max(2, ov_discipline)
+
+    # OP-003 — цикл и компонент
+    syl_cc = _cf(desc.get("cycleAndComponent", ""))
+    op_cycle, op_comp = _cf(matched.get("cycle", "")), _cf(matched.get("component", ""))
+    op_cc_label = f"{matched.get('cycle', '')} {matched.get('component', '')}".strip()
+    if not syl_cc:
+        items.append(verdict("OP-003", "WARN", "MAJOR", discipline=discipline, location="Цикл и компонент", expected=op_cc_label, actual="Цикл/компонент не извлечён из силлабуса", evidence="build/syllabus.json раздел 1", recommendation="Проверить поле «Цикл и компонент дисциплины» в разделе 1."))
     else:
-        items.append(verdict("OP-005", "SKIP", "MAJOR", discipline=discipline, location="Матрица РО", expected="Строка дисциплины в ОП с РО", actual="Не найдена", evidence="build/op.json", recommendation="Сначала устранить OP-002."))
-        items.append(verdict("OP-006", "SKIP", "MAJOR", discipline=discipline, location="Матрица РО", expected="Строка дисциплины в ОП с РО", actual="Не найдена", evidence="build/op.json", recommendation="Сначала устранить OP-002."))
-    items.append(verdict("OP-007", "WARN" if op.get("outcomes") else "SKIP", "MAJOR", discipline=discipline, location="Формулировки программных РО", expected="Формулировки совпадают посимвольно", actual=f"Извлечено РО ОП: {len(op.get('outcomes') or [])}", evidence="build/op.json/outcomes", recommendation="Для строгого diff требуется стабильная таблица программных РО."))
-    items.append(verdict("OP-010", "WARN", "MINOR", discipline=discipline, location="Язык преподавания", expected="Язык допустим в ОП", actual="Язык не извлечён структурированно", evidence="build/syllabus.json", recommendation="Добавить язык преподавания в модель экстракции при наличии поля в шаблоне."))
+        cc_ok = (not op_cycle or op_cycle in syl_cc) and (not op_comp or op_comp in syl_cc)
+        items.append(verdict("OP-003", "PASS" if cc_ok else "FAIL", "MAJOR", discipline=discipline, location="Цикл и компонент", expected=op_cc_label, actual=desc.get("cycleAndComponent", ""), evidence="ОП matchedDiscipline", recommendation="Привести цикл/компонент к паспорту ОП."))
+
+    # OP-004 — кредиты с учётом «модуль vs дисциплина»
+    op_credits = matched.get("credits") or 0
+    syl_credits = (desc.get("credits") or {}).get("academic") or syl.get("credits") or 0
+    if is_module_scope:
+        items.append(verdict("OP-004", "WARN", "CRITICAL", discipline=discipline, location="Кредиты", expected=f"Кредиты модуля по ОП: {op_credits:g}", actual=f"В силлабусе указано {float(syl_credits):g} (дисциплина модуля)", evidence="ОП описывает модуль целиком; силлабус — одну дисциплину модуля", recommendation="Кредиты этой дисциплины сверить по РУП; суммарные кредиты модуля = сумма по всем его дисциплинам."))
+    else:
+        ok = bool(op_credits) and bool(syl_credits) and float(op_credits) == float(syl_credits)
+        items.append(verdict("OP-004", "PASS" if ok else "FAIL", "CRITICAL", discipline=discipline, location="Кредиты", expected=f"{op_credits:g}", actual=f"{float(syl_credits):g}", evidence="ОП matchedDiscipline.credits", recommendation="Синхронизировать кредиты дисциплины с паспортом ОП."))
+
+    # OP-005/006 — матрица программных РО. Внимание: коды РО силлабуса (РО1..РОn по
+    # дисциплине) ≠ программные РО ОП (РО1..РО10). Сверка возможна только если силлабус
+    # приводит ЯВНЫЙ маппинг дисциплинарных РО на программные.
+    op_matrix = sorted({str(x).replace(" ", "").upper() for x in (matched.get("programOutcomes") or [])}, key=_code_num)
+    if not _syllabus_declares_program_ro(syl):
+        note = f"Силлабус не приводит явный маппинг дисциплинарных РО на программные РО ОП. ОП требует: {op_matrix or 'матрица не извлечена'}."
+        kind = "NEEDS_HUMAN" if op_matrix else "SKIP"
+        conf = 0.6 if op_matrix else 1.0
+        items.append(verdict("OP-005", kind, "MAJOR", discipline=discipline, location="Матрица РО", expected=f"Маппинг силлабуса ⊆ {op_matrix}", actual=note, evidence="build/syllabus.json раздел 4", recommendation="Добавить в раздел 4 столбец соответствия дисциплинарных РО программным РО ОП.", confidence=conf))
+        items.append(verdict("OP-006", kind, "MAJOR", discipline=discipline, location="Матрица РО", expected=f"Покрыты программные РО {op_matrix}", actual=note, evidence="build/syllabus.json раздел 4", recommendation="Указать, какие программные РО ОП формирует дисциплина.", confidence=conf))
+    else:
+        syl_ro = _program_ro_set(syl)
+        extra = sorted(syl_ro - set(op_matrix), key=_code_num)
+        missing = sorted(set(op_matrix) - syl_ro, key=_code_num)
+        items.append(verdict("OP-005", "PASS" if not extra else "FAIL", "MAJOR", discipline=discipline, location="Матрица РО", expected=f"A ⊆ B: {op_matrix}", actual=f"Лишние: {extra}" if extra else "OK", evidence="build/syllabus.json + build/op.json", recommendation="Удалить связи РО, которых нет в матрице ОП."))
+        items.append(verdict("OP-006", "PASS" if not missing else "FAIL", "MAJOR", discipline=discipline, location="Матрица РО", expected=f"B ⊆ A: {op_matrix}", actual=f"Не покрыты: {missing}" if missing else "OK", evidence="build/syllabus.json + build/op.json", recommendation="Добавить требуемые ОП программные РО в маппинг силлабуса."))
+
+    items.append(_op007(op, discipline))
+    items.append(_op010(discipline))
     return items
+
+
+def _op007(op: dict[str, Any], discipline: str) -> dict[str, Any]:
+    outcomes = op.get("outcomes") or []
+    return verdict("OP-007", "WARN" if outcomes else "SKIP", "MAJOR", discipline=discipline, location="Формулировки программных РО", expected="Формулировки совпадают посимвольно", actual=f"Извлечено программных РО из ОП: {len(outcomes)}", evidence="build/op.json/outcomes", recommendation="Для строгого diff силлабус должен цитировать формулировки программных РО ОП.")
+
+
+def _op010(discipline: str) -> dict[str, Any]:
+    return verdict("OP-010", "WARN", "MINOR", discipline=discipline, location="Язык преподавания", expected="Язык допустим в ОП", actual="Язык не извлечён структурированно", evidence="build/syllabus.json", recommendation="Добавить язык преподавания в модель экстракции при наличии поля в шаблоне.")
+
+
+def _syllabus_declares_program_ro(syl: dict[str, Any]) -> bool:
+    """Содержит ли силлабус явный маппинг дисциплинарных РО на программные РО ОП."""
+    text = _text(syl).casefold().replace("ё", "е")
+    return bool(re.search(r"программн\w+\s+результат", text) or re.search(r"\bро\s+оп\b", text))
+
+
+_HOUR_LABELS = {"total": "всего", "lecture": "лекции", "practical": "практ", "srop": "СРОП", "sro": "СРО", "clinicalBasePractice": "клин.база"}
+
+
+def _rup_scope(syl: dict[str, Any], rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool]:
+    """Выбирает строки РУП для сверки: одна дисциплина или агрегат модуля —
+    по тому, что ближе к итоговым часам силлабуса."""
+    desc = (syl.get("descriptions") or [{}])[0]
+    discipline = desc.get("disciplineName") or syl.get("title") or ""
+    module_name = desc.get("moduleName", "")
+    syl_total = (desc.get("hours") or {}).get("total") or 0
+
+    single = None
+    best = -1
+    for row in rows:
+        ov = _word_overlap(discipline, row.get("discipline", ""))
+        if ov > best:
+            best, single = ov, row
+    single = single if best >= 1 else None
+
+    agg_rows: list[dict[str, Any]] = []
+    if module_name:
+        course = single.get("course") if single else None
+        agg_rows = [r for r in rows if _similar_name(module_name, r.get("module", "")) and (course is None or r.get("course") == course)]
+
+    agg_total = sum((r.get("hours") or {}).get("total") or 0 for r in agg_rows)
+    single_total = (single.get("hours") or {}).get("total") or 0 if single else None
+
+    if agg_rows and len(agg_rows) > 1:
+        if single is None or abs(agg_total - syl_total) <= abs((single_total or 0) - syl_total):
+            return agg_rows, True
+    return ([single] if single else []), False
 
 
 def _rup(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -166,15 +258,64 @@ def _rup(data: dict[str, Any]) -> list[dict[str, Any]]:
     discipline = _discipline(syl)
     if rup.get("_extraction_error"):
         return [verdict("RUP-000", "SKIP", "CRITICAL", discipline=discipline, location="build/rup.json", expected="РУП распознан", actual=rup["_extraction_error"], evidence=rup.get("path", ""), recommendation="Передать корректный xlsx РУП.")]
-    found = any(_similar_name(discipline, " ".join(row.get("raw", []))) for row in rup.get("disciplines", []))
-    return [
-        verdict("RUP-001", "WARN" if found else "FAIL", "CRITICAL", discipline=discipline, location="РУП: период обучения", expected="Курс/семестр совпадают с РУП", actual="Строка найдена, колонки требуют уточнения" if found else "Строка дисциплины не найдена", evidence=f"candidates={len(rup.get('disciplines', []))}", recommendation="Сверить курс и семестр с РУП."),
-        verdict("RUP-002", "WARN" if found else "FAIL", "CRITICAL", discipline=discipline, location="РУП: кредиты", expected="Кредиты/ECTS совпадают", actual="Строка найдена, колонки требуют уточнения" if found else "Строка дисциплины не найдена", evidence="build/rup.json", recommendation="Сверить кредиты с РУП."),
-        verdict("RUP-003", "WARN" if found else "FAIL", "CRITICAL", discipline=discipline, location="РУП: часы", expected="Все виды часов совпадают", actual="Строка найдена, колонки требуют уточнения" if found else "Строка дисциплины не найдена", evidence="build/rup.json", recommendation="Сверить общий объём и разбивку часов."),
-        verdict("RUP-004", "WARN" if found else "SKIP", "MAJOR", discipline=discipline, location="РУП: кафедра", expected="Кафедра совпадает", actual="Колонка кафедры не выделена детерминированно", evidence="build/rup.json", recommendation="Уточнить маппинг колонок РУП."),
-        verdict("RUP-005", "SKIP", "CRITICAL", discipline=discipline, location="Связь модуль → дисциплины", expected="Проверка только для module", actual=f"type={syl.get('type')}", evidence=syl.get("title", ""), recommendation=""),
-        verdict("RUP-006", "WARN" if found else "SKIP", "MAJOR", discipline=discipline, location="Пререквизиты/постреквизиты", expected="Совпадают с РУП", actual="Колонки не выделены детерминированно", evidence="build/rup.json", recommendation="Уточнить маппинг колонок РУП."),
-    ]
+    rows = rup.get("disciplines") or []
+    scope, is_aggregate = _rup_scope(syl, rows)
+    if not scope:
+        miss = "Дисциплина/модуль не найдены в РУП"
+        return [verdict(tid, "FAIL", sev, discipline=discipline, location=f"РУП: {loc}", expected="Строка найдена в РУП", actual=miss, evidence=f"targetNames={rup.get('targetNames')}; кандидатов={len(rows)}", recommendation="Проверить наименование дисциплины/модуля и наличие в РУП.")
+                for tid, sev, loc in [("RUP-001", "CRITICAL", "период обучения"), ("RUP-002", "CRITICAL", "кредиты"), ("RUP-003", "CRITICAL", "часы")]] + [
+                    verdict("RUP-004", "SKIP", "MAJOR", discipline=discipline, location="РУП: кафедра", expected="Кафедра совпадает", actual=miss, evidence="build/rup.json", recommendation="Сначала найти строку в РУП."),
+                    verdict("RUP-005", "SKIP", "CRITICAL", discipline=discipline, location="РУП: модуль → дисциплины", expected="Состав модуля", actual=miss, evidence="build/rup.json", recommendation="Сначала найти строку в РУП."),
+                    verdict("RUP-006", "SKIP", "MAJOR", discipline=discipline, location="РУП: пре/постреквизиты", expected="Совпадают с РУП", actual="В РУП нет отдельных колонок пре/постреквизитов", evidence="build/rup.json", recommendation="Сверить пререквизиты вручную."),
+                ]
+
+    desc = (syl.get("descriptions") or [{}])[0]
+    rup_credits = sum(r.get("credits") or 0 for r in scope)
+    rup_hours = {k: sum((r.get("hours") or {}).get(k) or 0 for r in scope) for k in _HOUR_LABELS}
+    rup_course = scope[0].get("course") or 0
+    scope_label = "сумма по модулю" if is_aggregate else "дисциплина"
+
+    items: list[dict[str, Any]] = []
+
+    # RUP-001 — период обучения (курс)
+    syl_course = (desc.get("studyPeriod") or {}).get("course") or syl.get("course") or 0
+    course_ok = bool(rup_course) and int(syl_course or 0) == int(rup_course)
+    items.append(verdict("RUP-001", "PASS" if course_ok else "FAIL", "CRITICAL", discipline=discipline, location="РУП: период обучения", expected=f"Курс {rup_course} (РУП, {scope_label})", actual=f"Курс {syl_course} (силлабус)", evidence=f"лист РУП: {scope[0].get('sheet')}", recommendation="Сверить курс с РУП."))
+
+    # RUP-002 — кредиты
+    syl_credits = (desc.get("credits") or {}).get("academic") or syl.get("credits") or 0
+    credits_ok = bool(rup_credits) and float(syl_credits) == float(rup_credits)
+    items.append(verdict("RUP-002", "PASS" if credits_ok else "FAIL", "CRITICAL", discipline=discipline, location="РУП: кредиты", expected=f"{rup_credits:g} (РУП, {scope_label})", actual=f"{float(syl_credits):g} (силлабус)", evidence="build/rup.json", recommendation="Сверить количество кредитов с РУП."))
+
+    # RUP-003 — часы (по видам)
+    syl_hours = desc.get("hours") or {}
+    diffs = {_HOUR_LABELS[k]: (syl_hours.get(k) or 0, rup_hours[k]) for k in _HOUR_LABELS if (syl_hours.get(k) or 0) != rup_hours[k]}
+    hours_ok = not diffs
+    diff_text = "; ".join(f"{lbl}: силлабус {s:g} / РУП {r:g}" for lbl, (s, r) in diffs.items()) or "все виды часов совпадают"
+    items.append(verdict("RUP-003", "PASS" if hours_ok else "FAIL", "CRITICAL", discipline=discipline, location="РУП: часы", expected=f"всего {rup_hours['total']:g} (РУП, {scope_label})", actual=f"всего {syl_hours.get('total', 0):g} (силлабус)", evidence=diff_text, recommendation="Привести общий объём и разбивку часов в соответствие с РУП."))
+
+    # RUP-004 — кафедра
+    rup_depts = sorted({r.get("department", "") for r in scope if r.get("department")})
+    text = _text(syl)
+    dept_hit = any(_dept_in_text(d, text) for d in rup_depts)
+    items.append(verdict("RUP-004", "PASS" if dept_hit else "WARN", "MAJOR", discipline=discipline, location="РУП: кафедра", expected=f"Кафедры по РУП: {', '.join(rup_depts) or '—'}", actual="Совпадение с разделом «Преподаватели» найдено" if dept_hit else "Кафедра РУП не найдена в силлабусе", evidence="build/rup.json", recommendation="Сверить кафедру/НИИ с РУП."))
+
+    # RUP-005 — связь модуль → дисциплины
+    if is_aggregate:
+        names = [r.get("discipline", "") for r in scope]
+        items.append(verdict("RUP-005", "PASS", "CRITICAL", discipline=discipline, location="РУП: модуль → дисциплины", expected="Дисциплины модуля по РУП", actual=f"{len(names)} дисциплин: " + "; ".join(n[:40] for n in names), evidence="build/rup.json", recommendation="Проверить, что силлабус охватывает все дисциплины модуля."))
+    else:
+        items.append(verdict("RUP-005", "SKIP", "CRITICAL", discipline=discipline, location="РУП: модуль → дисциплины", expected="Проверка только для модульного силлабуса", actual="Силлабус дисциплинарного уровня", evidence=syl.get("title", ""), recommendation=""))
+
+    # RUP-006 — пре/постреквизиты (в РУП нет отдельных колонок)
+    items.append(verdict("RUP-006", "SKIP", "MAJOR", discipline=discipline, location="РУП: пре/постреквизиты", expected="Совпадают с РУП", actual="В РУП нет отдельных колонок пре/постреквизитов", evidence="build/rup.json", recommendation="Сверить пререквизиты/постреквизиты вручную с предыдущими модулями."))
+    return items
+
+
+def _dept_in_text(department: str, text: str) -> bool:
+    words = [w for w in re.findall(r"[а-яa-z]{5,}", _cf(department)) if w not in {"кафедра", "кафедры"}]
+    low = _cf(text)
+    return any(w in low for w in words)
 
 
 def _int(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -223,10 +364,33 @@ def _eq(test_id: str, severity: str, discipline: str, location: str, expected: A
     return verdict(test_id, "PASS" if ok else "FAIL", severity, discipline=discipline, location=location, expected=str(expected), actual=str(actual), evidence=evidence, recommendation="Синхронизировать значение с источником.")
 
 
+_NAME_STOP = {"дисциплины", "дисциплина", "силлабус", "модуль", "модуля", "система", "системы"}
+
+
+def _word_set(value: str) -> set[str]:
+    return {x for x in re.findall(r"[а-яa-z]{4,}", _cf(value)) if x not in _NAME_STOP}
+
+
+def _word_overlap(a: str, b: str) -> int:
+    return len(_word_set(a) & _word_set(b))
+
+
 def _similar_name(a: str, b: str) -> bool:
-    aw = {x for x in re.findall(r"[а-яa-z]{4,}", a.casefold()) if x not in {"дисциплины", "силлабус"}}
-    bw = {x for x in re.findall(r"[а-яa-z]{4,}", b.casefold())}
-    return bool(aw and len(aw & bw) >= max(1, min(3, len(aw) // 2)))
+    aw, bw = _word_set(a), _word_set(b)
+    if not aw or not bw:
+        return False
+    need = 2 if min(len(aw), len(bw)) >= 3 else 1
+    return len(aw & bw) >= need
+
+
+def _cf(value: str) -> str:
+    """casefold + нормализация ё→е + схлопывание пробелов."""
+    return re.sub(r"\s+", " ", (value or "").casefold().replace("ё", "е")).strip()
+
+
+def _code_num(code: str) -> int:
+    match = re.search(r"\d+", code or "")
+    return int(match.group(0)) if match else 0
 
 
 def _program_ro_set(syl: dict[str, Any]) -> set[str]:
@@ -308,8 +472,39 @@ def _assessment_checks(syl: dict[str, Any], discipline: str) -> list[dict[str, A
         verdict("INT-043", "WARN", "MAJOR", discipline=discipline, location="Чек-листы", expected="У каждого инструмента есть чек-лист", actual="Инструменты оценивания не выделены полностью", evidence="build/syllabus.json", recommendation="Проверить чек-листы вручную."),
         verdict("INT-044", "WARN", "MAJOR", discipline=discipline, location="Чек-листы/рубрики", expected="Суммы баллов сходятся", actual="Баллы чек-листов не выделены полностью", evidence="build/syllabus.json", recommendation="Проверить арифметику чек-листов."),
         verdict("INT-045", "SKIP", "MAJOR", discipline=discipline, location="OSCE", expected="Если есть практические навыки, OSCE и red flags заполнены", actual="OSCE не выделен как обязательный", evidence="build/syllabus.json", recommendation=""),
-        verdict("INT-046", "WARN", "MAJOR", discipline=discipline, location="КИС", expected="Вопросы покрывают РО", actual=f"questions={len((syl.get('examMaterials') or {}).get('questions') or [])}", evidence="build/syllabus.json/examMaterials", recommendation="Проверить приложение 1."),
+        _int046(syl, discipline),
     ]
+
+
+def _int046(syl: dict[str, Any], discipline: str) -> dict[str, Any]:
+    questions = (syl.get("examMaterials") or {}).get("questions") or []
+    return verdict(
+        "INT-046",
+        "PASS" if questions else "WARN",
+        "MAJOR",
+        discipline=discipline,
+        location="Приложение 1 (КИС)",
+        expected="Перечень вопросов промежуточной аттестации заполнен",
+        actual=f"вопросов: {len(questions)}" if questions else "КИС пуст — вопросы не заполнены",
+        evidence="build/syllabus.json/examMaterials",
+        recommendation="Заполнить перечень вопросов КИС (Приложение 1); каждый РО должен покрываться хотя бы одним вопросом.",
+    )
+
+
+_WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница"]
+_ADMIN_ABBR = {
+    "ОП", "РУП", "БД", "ВК", "ОК", "КВ", "ПД", "ООД", "ECTS", "ISBN", "ISSN", "URL", "DOI", "КАРТА", "КО",
+    "КИС", "НИИ", "АИС", "КОК", "ЭБС", "ФИО", "СРОП", "СРО", "РО", "ПН", "ТК", "ПА", "ОРД", "ОТК", "ОПК",
+    "ИО", "ОПА", "ПЗ", "СРС", "OSCE", "MEQ", "CBL", "TBL", "PBL", "DOPS", "EPA", "COVID", "KZ", "IV", "MEDIA",
+}
+
+
+def _undefined_abbreviations(syl: dict[str, Any]) -> list[str]:
+    text = _text(syl)
+    glossary = {_cf(g.get("abbreviation", "")) for g in (syl.get("glossary") or [])}
+    used = set(re.findall(r"\b[А-ЯA-Z]{2,5}\b", text))
+    out = [a for a in used if not a.isdigit() and _cf(a) not in glossary and a not in _ADMIN_ABBR]
+    return sorted(out)
 
 
 def _other_int_checks(syl: dict[str, Any], discipline: str) -> list[dict[str, Any]]:
@@ -317,12 +512,63 @@ def _other_int_checks(syl: dict[str, Any], discipline: str) -> list[dict[str, An
     teachers_ok = bool(syl.get("teachers"))
     approval = syl.get("approval") or {}
     return [
-        verdict("INT-050", "WARN", "MAJOR", discipline=discipline, location="Литература / КО", expected="Литература отражена в карте обеспеченности", actual="Литература и КО не выделены полностью", evidence="build/syllabus.json", recommendation="Проверить раздел 10 и приложение 2."),
-        verdict("INT-051", "WARN", "MINOR", discipline=discipline, location="Глоссарий", expected="Все сокращения расшифрованы", actual=f"glossary={len(syl.get('glossary') or [])}", evidence="build/syllabus.json/glossary", recommendation="Проверить сокращения и глоссарий."),
-        verdict("INT-052", "WARN", "MAJOR", discipline=discipline, location="График СРОП", expected="Пн-пт, ФИО, время, преподаватель из раздела 2", actual=f"entries={len(syl.get('sropSchedule') or [])}", evidence="build/syllabus.json/sropSchedule", recommendation="Проверить график СРОП."),
+        _int050(syl, discipline),
+        _int051(syl, discipline),
+        _int052(syl, discipline),
         verdict("INT-053", "PASS" if teachers_ok else "FAIL", "MAJOR", discipline=discipline, location="Преподаватели", expected="ФИО, должность, кафедра/НИИ, e-mail", actual=f"teachers={len(syl.get('teachers') or [])}", evidence="build/syllabus.json/teachers", recommendation="Заполнить сведения о преподавателях."),
-        verdict("INT-054", "PASS" if (syl.get("aimAndSummary") or {}).get("aim") else "FAIL", "MAJOR", discipline=discipline, location="Цель и содержание", expected="Цель и краткое содержание на правильном уровне", actual=str(syl.get("aimAndSummary")), evidence="build/syllabus.json/aimAndSummary", recommendation="Заполнить цель и краткое содержание."),
+        verdict("INT-054", "PASS" if (syl.get("aimAndSummary") or {}).get("aim") else "FAIL", "MAJOR", discipline=discipline, location="Цель и содержание", expected="Цель и краткое содержание на правильном уровне", actual=str(syl.get("aimAndSummary"))[:120], evidence="build/syllabus.json/aimAndSummary", recommendation="Заполнить цель и краткое содержание."),
         verdict("INT-055", "PASS" if approval.get("departmentProtocol") else "FAIL", "CRITICAL", discipline=discipline, location="Согласование", expected="Протокол, разработчики, согласующие, утверждение", actual=str(approval), evidence="build/syllabus.json/approval", recommendation="Заполнить блок согласования и утверждения."),
-        verdict("INT-056", "WARN", "MAJOR", discipline=discipline, location="Титул vs описание", expected="Название, ОП, кредиты, курс, год совпадают", actual="Поля извлечены частично", evidence=f"title={syl.get('title')}", recommendation="Сверить титул и описание."),
+        _int056(syl, discipline),
         verdict("INT-057", "PASS" if "академическ" in text.casefold() and "апелляц" in text.casefold() else "WARN", "MINOR", discipline=discipline, location="Политика", expected="10 блоков политики по шаблону", actual="Ключевые блоки распознаны частично", evidence="Поиск типовых терминов политики", recommendation="Сверить раздел политики с шаблоном."),
     ]
+
+
+def _int050(syl: dict[str, Any], discipline: str) -> dict[str, Any]:
+    refs = syl.get("references") or []
+    placeholders = [r for r in refs if r.get("placeholder")]
+    if not refs:
+        return verdict("INT-050", "WARN", "MAJOR", discipline=discipline, location="Раздел 10 / Приложение 2 (КО)", expected="Список литературы заполнен и отражён в карте обеспеченности", actual="Список литературы (раздел 10) не распознан автоматически", evidence="build/syllabus.json/references", recommendation="Проверить раздел 10 и карту обеспеченности (Приложение 2) вручную.")
+    if placeholders:
+        return verdict("INT-050", "FAIL", "MAJOR", discipline=discipline, location="Раздел 10: список литературы", expected="Все позиции литературы заполнены", actual=f"{len(placeholders)} из {len(refs)} позиций — пустые заготовки", evidence="build/syllabus.json/references", recommendation="Заменить пустые позиции литературы полноценными библиографическими описаниями.")
+    return verdict("INT-050", "WARN", "MAJOR", discipline=discipline, location="Раздел 10 / Приложение 2 (КО)", expected="Литература отражена в карте обеспеченности", actual=f"{len(refs)} источник(ов); сверку с картой обеспеченности выполнить вручную", evidence="build/syllabus.json/references", recommendation="Сверить каждый источник с картой обеспеченности (Приложение 2).")
+
+
+def _int051(syl: dict[str, Any], discipline: str) -> dict[str, Any]:
+    glossary = syl.get("glossary") or []
+    if not glossary:
+        return verdict("INT-051", "WARN", "MINOR", discipline=discipline, location="Раздел 11: глоссарий", expected="Все сокращения расшифрованы", actual="Глоссарий не распознан автоматически", evidence="build/syllabus.json/glossary", recommendation="Проверить раздел 11 (глоссарий / список сокращений).")
+    undefined = _undefined_abbreviations(syl)
+    if undefined:
+        return verdict("INT-051", "WARN", "MINOR", discipline=discipline, location="Раздел 11: глоссарий", expected="Все употреблённые сокращения расшифрованы", actual=f"Возможно не расшифрованы: {', '.join(undefined[:12])}", evidence=f"глоссарий: {len(glossary)} записей", recommendation="Добавить недостающие сокращения в глоссарий или убрать неиспользуемые.")
+    return verdict("INT-051", "PASS", "MINOR", discipline=discipline, location="Раздел 11: глоссарий", expected="Все сокращения расшифрованы", actual=f"Глоссарий: {len(glossary)} сокращений; неописанных не обнаружено", evidence="build/syllabus.json/glossary", recommendation="")
+
+
+def _int052(syl: dict[str, Any], discipline: str) -> dict[str, Any]:
+    sched = [e for e in (syl.get("sropSchedule") or []) if _cf(e.get("dayOfWeek", "")) in _WEEKDAYS]
+    if not sched:
+        return verdict("INT-052", "WARN", "MAJOR", discipline=discipline, location="Раздел 7: график СРОП", expected="Пн–Пт, ФИО преподавателя, время с–по", actual="График СРОП не распознан автоматически", evidence="build/syllabus.json/sropSchedule", recommendation="Проверить раздел 7 (график СРОП).")
+    days = {_cf(e["dayOfWeek"]) for e in sched}
+    missing = [d for d in _WEEKDAYS if d not in days]
+    no_time = [e for e in sched if not e.get("timeFrom") or not e.get("timeTo")]
+    if missing:
+        return verdict("INT-052", "WARN", "MAJOR", discipline=discipline, location="Раздел 7: график СРОП", expected="Покрыты все дни Пн–Пт", actual=f"Записей: {len(sched)}; не покрыты дни: {', '.join(missing)}", evidence="build/syllabus.json/sropSchedule", recommendation="Добавить консультации на непокрытые дни недели.")
+    if no_time:
+        return verdict("INT-052", "WARN", "MAJOR", discipline=discipline, location="Раздел 7: график СРОП", expected="У каждой записи указано время с–по", actual=f"Записей: {len(sched)}; у части не указано время", evidence="build/syllabus.json/sropSchedule", recommendation="Указать время консультаций (с–по) для всех записей.")
+    return verdict("INT-052", "PASS", "MAJOR", discipline=discipline, location="Раздел 7: график СРОП", expected="Пн–Пт, ФИО, время", actual=f"Пн–Пт покрыты, {len(sched)} записей с временем", evidence="build/syllabus.json/sropSchedule", recommendation="")
+
+
+def _int056(syl: dict[str, Any], discipline: str) -> dict[str, Any]:
+    prog = syl.get("program") or {}
+    desc = (syl.get("descriptions") or [{}])[0]
+    issues = []
+    if not prog.get("code"):
+        issues.append("шифр ОП не распознан на титуле")
+    if not syl.get("academicYear"):
+        issues.append("учебный год не распознан")
+    title_course = syl.get("course")
+    desc_course = (desc.get("studyPeriod") or {}).get("course")
+    if title_course and desc_course and int(title_course) != int(desc_course):
+        issues.append(f"курс: титул {title_course} ≠ раздел 1 {desc_course}")
+    if issues:
+        return verdict("INT-056", "WARN", "MAJOR", discipline=discipline, location="Титул vs раздел 1", expected="ОП, год, курс на титуле совпадают с разделом 1", actual="; ".join(issues), evidence=f"title={str(syl.get('title'))[:60]}", recommendation="Сверить титульный лист с разделом 1.")
+    return verdict("INT-056", "PASS", "MAJOR", discipline=discipline, location="Титул vs раздел 1", expected="ОП, год, курс согласованы", actual=f"ОП {prog.get('code')}, {syl.get('academicYear')}, курс {title_course}", evidence="build/syllabus.json", recommendation="")

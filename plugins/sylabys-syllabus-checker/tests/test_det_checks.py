@@ -27,7 +27,7 @@ def make_build(root: Path) -> Path:
             {
                 "disciplineName": "Тестовая дисциплина",
                 "program": {"code": "6В10123", "name": "Медицина", "level": ""},
-                "cycleAndComponent": "",
+                "cycleAndComponent": "БД ВК",
                 "studyPeriod": {"course": 4, "semester": "7"},
                 "credits": {"academic": 3, "ects": 3},
                 "hours": {"total": 90, "lecture": 10, "practical": 20, "srop": 10, "sro": 20, "clinicalBasePractice": 0},
@@ -54,15 +54,34 @@ def make_build(root: Path) -> Path:
         "aimAndSummary": {"aim": "", "shortSummary": ""},
         "assessments": [{"structure": [], "admissionRatingFormula": "", "finalGradeFormula": ""}],
         "approval": {"departmentProtocol": "", "developers": [], "agreedBy": []},
-        "source": {"text": "Описание цель результат тематический план оценивание", "paragraphs": ["Тест"]},
+        "source": {"text": "Описание цель результат программные результаты обучения тематический план оценивание", "paragraphs": ["Тест"]},
         "format": {"fonts": {}, "fontSizesHalfPt": {}, "marginsCm": []},
     }
     op = {
         "program": {"code": "6В10123", "name": "Медицина", "level": ""},
         "outcomes": [{"code": "РО1", "text": "x"}],
+        "targetNames": ["Тестовая дисциплина"],
+        "matchedDiscipline": {"name": "Тестовая дисциплина", "cycle": "БД", "component": "ВК", "credits": 3, "programOutcomes": ["РО1", "РО3"]},
         "disciplines": [{"name": "Тестовая дисциплина", "raw": [], "programOutcomes": ["РО1", "РО3"]}],
     }
-    rup = {"disciplines": [{"sheet": "x", "raw": ["Тестовая дисциплина", "90"]}]}
+    rup = {
+        "targetNames": ["Тестовая дисциплина"],
+        "disciplines": [
+            {
+                "sheet": "4 курс 2023",
+                "course": 4,
+                "module": "Тестовый модуль",
+                "discipline": "Тестовая дисциплина",
+                "department": "Кафедра тестовой дисциплины",
+                "controlForm": "э",
+                "credits": 3,
+                "ects": 3,
+                "hours": {"total": 90, "lecture": 10, "practical": 20, "srop": 10, "sro": 20, "clinicalBasePractice": 0},
+                "programOutcomes": ["РО1"],
+                "raw": [],
+            }
+        ],
+    }
     _write(build / "syllabus.json", syllabus)
     _write(build / "op.json", op)
     _write(build / "rup.json", rup)
@@ -79,6 +98,14 @@ class DetChecksTest(unittest.TestCase):
             self.assertEqual(result["INT-021"]["verdict"], "FAIL")
             self.assertIn("ПЗ", result["INT-021"]["evidence"])
             self.assertIn("СРОП", result["INT-021"]["evidence"])
+
+    def test_rup_matches_course_credits_and_hours(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            build = make_build(Path(tmp))
+            result = {item["testId"]: item for item in run_det_suite("RUP", build)}
+            self.assertEqual(result["RUP-001"]["verdict"], "PASS")
+            self.assertEqual(result["RUP-002"]["verdict"], "PASS")
+            self.assertEqual(result["RUP-003"]["verdict"], "PASS")
 
     def test_op_matrix_reports_extra_and_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -20,7 +20,11 @@ def main() -> int:
 
     docx = Path(args.docx).resolve()
     if not docx.exists():
-        raise SystemExit(f"Input document not found: {docx}")
+        raise SystemExit(f"Силлабус не найден: {docx}")
+    if args.op and not Path(args.op).expanduser().exists():
+        raise SystemExit(f"Передан путь к ОП, но файл не найден: {args.op}")
+    if args.rup and not Path(args.rup).expanduser().exists():
+        raise SystemExit(f"Передан путь к РУП, но файл не найден: {args.rup}")
     config = load_config()
     roots = [docx.parent, Path.cwd(), REPO_ROOT]
     op = Path(args.op).resolve() if args.op else find_fixture(
@@ -36,10 +40,23 @@ def main() -> int:
 
     build_dir = Path(args.build).resolve()
     build_dir.mkdir(parents=True, exist_ok=True)
-    write_json(build_dir / "syllabus.json", extract_syllabus(docx))
-    write_json(build_dir / "op.json", extract_op(op))
-    write_json(build_dir / "rup.json", extract_rup(rup))
-    write_json(build_dir / "manifest.json", {"syllabus": str(docx), "op": str(op) if op else "", "rup": str(rup) if rup else ""})
+
+    syllabus = extract_syllabus(docx)
+    source = syllabus.get("source", {})
+    if source.get("_extraction_error") or not source.get("text"):
+        raise SystemExit(f"Силлабус не удалось прочитать (пустой текст). Причина: {source.get('_extraction_error', 'неизвестна')}")
+    write_json(build_dir / "syllabus.json", syllabus)
+
+    # Адресная сверка: из ОП и РУП тянем только строки этой дисциплины/модуля.
+    desc = (syllabus.get("descriptions") or [{}])[0]
+    target_names = [
+        desc.get("disciplineName") or "",
+        desc.get("moduleName") or "",
+        syllabus.get("title") or "",
+    ]
+    write_json(build_dir / "op.json", extract_op(op, target_names))
+    write_json(build_dir / "rup.json", extract_rup(rup, target_names))
+    write_json(build_dir / "manifest.json", {"syllabus": str(docx), "op": str(op) if op else "", "rup": str(rup) if rup else "", "targetNames": [t for t in target_names if t]})
     return 0
 
 
