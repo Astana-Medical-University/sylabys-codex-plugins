@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5 - 2026-06-16
+
+- Added explicit real Codex subagent workflow to the syllabus-checker skill and `/check-syllabus` prompt.
+- Added `scripts/run_suite.py` so each subagent can run exactly one suite with absolute paths.
+- Added `scripts/write_final_report.py` to collect six suite reports into the human-readable Markdown/HTML/PDF/JSON audit.
+- Kept `scripts/run_check.py` as a fallback for Codex environments without subagent capability.
+
 ## Unreleased
 
 ## v0.1.4 - 2026-06-16

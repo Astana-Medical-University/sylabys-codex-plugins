@@ -1,54 +1,69 @@
 # /check-syllabus
 
-Запусти полную проверку силлабуса на шести фоновых агентах.
+Запусти полную проверку силлабуса через настоящих Codex-субагентов.
 
-Аргумент: путь к `.docx` силлабуса.
+Аргумент: путь к `.docx` силлабуса. Папка с силлабусом обычно также содержит ОП/паспорт ОП и РУП/учебный план.
 
-1. Очисти `build/` и `reports/`.
-2. Запусти:
+## Главное правило
+
+Используй real Codex subagents, если capability доступна в текущем треде. Главный тред делает только подготовку, запуск, ожидание и арбитраж. Шесть проверочных suite должны выполняться шестью отдельными субагентами. Python ThreadPool из `run_check.py` разрешён только как fallback, если subagents недоступны.
+
+## Порядок
+
+1. Найди `plugin_root`: корень установленного плагина `sylabys-syllabus-checker`.
+2. Определи:
+   - `source_root` = папка с силлабусом, ОП и РУП;
+   - `build_dir` = `<source_root>\build`;
+   - `reports_dir` = `<source_root>\reports`.
+3. Очисти или пересоздай `build_dir` и `reports_dir`, не трогая исходные `.docx`/`.xlsx`.
+4. В главном треде выполни extraction:
 
    ```powershell
-   python scripts/extract.py "<docx>" --build "build"
+   python "<plugin_root>\scripts\extract.py" "<docx>" --build "<build_dir>"
    ```
 
-3. Spawn six agents in parallel using spawn_agents:
+   Если ОП/РУП не найдены автоматически, повтори с `--op` и `--rup`.
+
+5. Spawn six Codex subagents in parallel. Если доступны custom agent names, используй:
    `syllabus-str`, `syllabus-fmt`, `syllabus-op`, `syllabus-rup`, `syllabus-int`, `syllabus-txt`.
-   Передай каждому пути `build/`, `reports/`, а также путь к исходному docx для FMT и TXT.
-   Wait for ALL six to finish.
+   Если эти custom names не видны, используй обычный `worker`/`default` subagent type, но с suite-specific prompt.
 
-4. Проверь наличие всех шести файлов:
-   `reports/str.json`, `reports/fmt.json`, `reports/op.json`, `reports/rup.json`, `reports/int.json`, `reports/txt.json`.
-   Если отчёт отсутствует, перезапусти соответствующего агента один раз.
-   Повторный сбой внеси как инцидент в финальный отчёт.
+6. Каждому субагенту передай абсолютные пути `plugin_root`, `build_dir`, `reports_dir`, путь к исходному силлабусу, путь к ОП/РУП при наличии и ровно один suite. Команда для suite:
 
-5. Роль арбитра выполни сам в главном треде, не спавнь седьмого агента:
-   - склей каскадные замечания в одну корневую причину;
-   - отсортируй CRITICAL → MAJOR → MINOR → WARN;
-   - вынеси NEEDS_HUMAN в отдельный блок;
-   - вычисли итоговый статус по п. 1.3 `docs/verification-algorithm.md`;
-   - запиши `reports/final-report.json`, `reports/final-report.md` и `reports/final-report.pdf`.
+   ```powershell
+   python "<plugin_root>\scripts\run_suite.py" --suite "<SUITE>" --build "<build_dir>" --reports "<reports_dir>"
+   ```
 
-6. `reports/final-report.md` и `reports/final-report.pdf` должны быть не технической распечаткой, а понятным аудитом на русском в стиле экспертного заключения:
-   - сначала исполнительное заключение: соответствует / частично соответствует / не готово к утверждению;
-   - затем таблица фактических данных из документов;
-   - затем главная таблица исправлений с колонками: где исправить, уровень исправления, доказательство, что не так, как исправить;
-   - отдельно выпиши форму итогового контроля;
-   - отдельно оцени литературу и необходимость обновления/очистки библиографии;
-   - отдельно дай рекомендуемые вопросы для итогового контроля по темам дисциплины с форматом и уровнем Bloom;
-   - отдельно дай нумерованный список приоритетных изменений для внесения;
-   - технические коды тестов оставь только в конце как приложение.
-   Внутри можно использовать JSON, коды тестов и детерминированные проверки, но основной результат должен отвечать на вопросы: что исправить, где исправить и какой уровень исправления.
+   Где `<SUITE>` один из `STR`, `FMT`, `OP`, `RUP`, `INT`, `TXT`.
 
-Локальный релизный fallback, если кастомные Codex-агенты недоступны в текущем окружении:
+7. Wait for all six subagents. Проверь наличие:
+   `str.json`, `fmt.json`, `op.json`, `rup.json`, `int.json`, `txt.json` в `reports_dir`.
+   Если файл отсутствует, перезапусти только соответствующий suite один раз.
+
+8. Арбитраж выполни сам в главном треде:
+
+   ```powershell
+   python "<plugin_root>\scripts\write_final_report.py" --build "<build_dir>" --reports "<reports_dir>"
+   ```
+
+9. Финальный вывод пользователю: понятный аудит на русском, без сырого JSON. Обязательно укажи:
+   - итоговый статус;
+   - что исправить;
+   - где исправить;
+   - уровень исправления;
+   - доказательство;
+   - как исправить;
+   - форму итогового контроля;
+   - замечания по литературе;
+   - вопросы для итогового контроля;
+   - путь к `final-report.pdf`.
+
+## Fallback
+
+Если subagent capability отсутствует в текущем окружении, явно напиши, что используется fallback, и запусти:
 
 ```powershell
-python scripts/run_check.py "<docx>"
-```
-
-Для переносимого запуска комплекта в отдельной папке:
-
-```powershell
-python scripts/run_check.py "<docx>" --output-root "<folder-with-syllabus-op-rup>"
+python "<plugin_root>\scripts\run_check.py" "<docx>" --output-root "<source_root>"
 ```
 
 Настройки поиска ОП/РУП, названий папок вывода и PDF-движка берутся из `config/syllabus-checker.json`, локального `sylabys-checker.json` или файла из `SYLABYS_CHECKER_CONFIG`.

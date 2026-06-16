@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.run_suite import run_agent_suite
 from scripts.syllabus_checker.det import run_det_suite
 from scripts.syllabus_checker.extractor import _extract_thematic_plan
 
@@ -83,6 +84,17 @@ class DetChecksTest(unittest.TestCase):
             result = {item["testId"]: item for item in run_det_suite("OP", build)}
             self.assertEqual(result["OP-005"]["verdict"], "FAIL")
             self.assertEqual(result["OP-006"]["verdict"], "FAIL")
+
+    def test_run_suite_writes_named_suite_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            build = make_build(root)
+            reports = root / "reports"
+            summary = run_agent_suite("STR", build, reports)
+            self.assertIn("syllabus-str", summary)
+            self.assertTrue((reports / "str.json").exists())
+            payload = json.loads((reports / "str.json").read_text(encoding="utf-8"))
+            self.assertIsInstance(payload, list)
 
     def test_extract_thematic_plan_hours_from_new_template_columns(self) -> None:
         table = [
