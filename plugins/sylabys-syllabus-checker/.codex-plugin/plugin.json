@@ -1,6 +1,6 @@
 {
   "name": "sylabys-syllabus-checker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Sylabys syllabus audit plugin. Aliases: @sylabys-syllabus-checker. This plugin exposes an MCP tool prepare_syllabus_audit that returns an exact orchestration plan. Codex must then spawn six real subagents for STR, FMT, OP, RUP, INT and TXT, wait for all, and write the human-readable Russian audit PDF. Do not invoke bundled skills.",
   "author": {
     "name": "Sylabys"
