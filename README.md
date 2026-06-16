@@ -38,6 +38,23 @@ PDF-версия для отправки ППС:
 
 [PPS_USER_GUIDE.pdf](PPS_USER_GUIDE.pdf)
 
+
+## Share Для ППС
+
+Инструкция для ответственного сотрудника, который подключает плагин у себя и раздаёт его преподавателям через Codex `Share`:
+
+[ADMIN_SHARE_GUIDE.md](ADMIN_SHARE_GUIDE.md)
+
+Можно открыть двойным кликом локальный ярлык:
+
+[SHARE_PLUGIN.url](SHARE_PLUGIN.url)
+
+Прямая локальная ссылка на окно Share в Codex app:
+
+```text
+codex://plugins/sylabys-syllabus-checker?marketplacePath=D%3A%5Cgithub%5Csylabys-codex-plugins%5Cmarketplace.json&mode=share
+```
+
 ## Install From Git
 
 После публикации репозитория в GitHub/GitLab:
@@ -99,3 +116,5 @@ codex://plugins/sylabys-syllabus-checker?marketplacePath=D%3A%5Cgithub%5Csylabys
 - `main` - стабильная версия для пользователей.
 - `dev` - тестирование изменений перед релизом.
 - tags `vX.Y.Z` - зафиксированные версии релиза.
+
+
